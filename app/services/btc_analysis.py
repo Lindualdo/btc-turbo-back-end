@@ -1,3 +1,4 @@
+
 from tvDatafeed import TvDatafeed, Interval
 
 def get_btc_vs_200d_ema(tv: TvDatafeed):
@@ -51,7 +52,6 @@ def get_realized_price_vs_price_atual(tv: TvDatafeed):
     try:
         df = tv.get_hist(symbol="BTCUSDT", exchange="BINANCE", interval=Interval.in_daily, n_bars=1)
         preco_atual = df.iloc[-1]["close"]
-
         realized_price = 24000.0
         variacao_pct = ((preco_atual - realized_price) / realized_price) * 100
 
@@ -85,3 +85,57 @@ def get_realized_price_vs_price_atual(tv: TvDatafeed):
             "pontuacao_ponderada": 0.0,
             "erro": str(e)
         }
+
+def get_puell_multiple_mock():
+    valor = 1.2  # mock
+    if 0.3 <= valor <= 1.5:
+        pontos = 2
+    elif 1.5 < valor <= 2.5:
+        pontos = 1
+    else:
+        pontos = 0
+
+    return {
+        "indicador": "Puell Multiple",
+        "fonte": "Mock (fixado)",
+        "valor": valor,
+        "pontuacao_bruta": pontos,
+        "peso": 0.20,
+        "pontuacao_ponderada": round(pontos * 0.20, 2)
+    }
+
+def get_btc_dominance_mock():
+    tendencia = "alta"  # mock
+    if tendencia == "alta":
+        pontos = 2
+    elif tendencia == "estavel":
+        pontos = 1
+    else:
+        pontos = 0
+
+    return {
+        "indicador": "BTC Dominance Tendência",
+        "fonte": "Mock (fixado)",
+        "valor": tendencia,
+        "pontuacao_bruta": pontos,
+        "peso": 0.20,
+        "pontuacao_ponderada": round(pontos * 0.20, 2)
+    }
+
+def get_macro_environment_mock():
+    contexto = "expansao"  # mock
+    if contexto == "expansao":
+        pontos = 2
+    elif contexto == "estavel":
+        pontos = 1
+    else:
+        pontos = 0
+
+    return {
+        "indicador": "Macroambiente (Liquidez/Juros)",
+        "fonte": "Mock (fixado)",
+        "valor": contexto,
+        "pontuacao_bruta": pontos,
+        "peso": 0.10,
+        "pontuacao_ponderada": round(pontos * 0.10, 2)
+    }
