@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+pandas
+git+https://github.com/rongardF/tvdatafeed.git
+beautifulsoup4
+requests
