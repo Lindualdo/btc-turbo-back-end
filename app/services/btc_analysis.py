@@ -1,5 +1,5 @@
-
 from tvDatafeed import TvDatafeed, Interval
+import requests
 
 def get_btc_vs_200d_ema(tv: TvDatafeed):
     try:
@@ -7,7 +7,7 @@ def get_btc_vs_200d_ema(tv: TvDatafeed):
         df["EMA_200"] = df["close"].ewm(span=200, adjust=False).mean()
         latest = df.iloc[-1]
         close = latest["close"]
-        ema200 = latest["EMA_200"]
+        ema200 = df["EMA_200"].iloc[-1]
         variacao_pct = ((close - ema200) / ema200) * 100
 
         if variacao_pct > 10:
@@ -17,10 +17,7 @@ def get_btc_vs_200d_ema(tv: TvDatafeed):
         else:
             pontos = 0
 
-        if 9.5 <= variacao_pct <= 10.5:
-            confiabilidade = "95%"
-        else:
-            confiabilidade = "100%"
+        confiabilidade = "95%" if 9.5 <= variacao_pct <= 10.5 else "100%"
 
         return {
             "indicador": "BTC vs 200D EMA",
@@ -52,7 +49,8 @@ def get_realized_price_vs_price_atual(tv: TvDatafeed):
     try:
         df = tv.get_hist(symbol="BTCUSDT", exchange="BINANCE", interval=Interval.in_daily, n_bars=1)
         preco_atual = df.iloc[-1]["close"]
-        realized_price = 24000.0
+        realized_price = 24000.0  # valor fixado
+
         variacao_pct = ((preco_atual - realized_price) / realized_price) * 100
 
         if variacao_pct > 15:
@@ -86,23 +84,46 @@ def get_realized_price_vs_price_atual(tv: TvDatafeed):
             "erro": str(e)
         }
 
-def get_puell_multiple_mock():
-    valor = 1.2  # mock
-    if 0.3 <= valor <= 1.5:
-        pontos = 2
-    elif 1.5 < valor <= 2.5:
-        pontos = 1
-    else:
-        pontos = 0
+def get_puell_multiple():
+    try:
+        url = "https://community-api.coinmetrics.io/v4/timeseries/asset-metrics"
+        params = {
+            "assets": "btc",
+            "metrics": "puell_multiple",
+            "frequency": "1d",
+            "limit": 1
+        }
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        data = response.json()
+        valor = float(data['data'][0]['puell_multiple'])
 
-    return {
-        "indicador": "Puell Multiple",
-        "fonte": "Mock (fixado)",
-        "valor": valor,
-        "pontuacao_bruta": pontos,
-        "peso": 0.20,
-        "pontuacao_ponderada": round(pontos * 0.20, 2)
-    }
+        if 0.3 <= valor <= 1.5:
+            pontos = 2
+        elif 1.5 < valor <= 2.5:
+            pontos = 1
+        else:
+            pontos = 0
+
+        return {
+            "indicador": "Puell Multiple",
+            "fonte": "Coin Metrics API",
+            "valor": round(valor, 2),
+            "pontuacao_bruta": pontos,
+            "peso": 0.20,
+            "pontuacao_ponderada": round(pontos * 0.20, 2)
+        }
+
+    except Exception as e:
+        return {
+            "indicador": "Puell Multiple",
+            "fonte": "Coin Metrics API",
+            "valor": "erro",
+            "pontuacao_bruta": 0,
+            "peso": 0.20,
+            "pontuacao_ponderada": 0.0,
+            "erro": str(e)
+        }
 
 def get_btc_dominance_mock():
     tendencia = "alta"  # mock
