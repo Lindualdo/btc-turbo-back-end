@@ -112,10 +112,8 @@ def btc_cycles(username: str, password: str):
             destaques.append(f"🔹 {i['indicador']} está forte")
         elif i["pontuacao_bruta"] == 0:
             destaques.append(f"⚠️ {i['indicador']} está fraco")
-        else:
-            if "variacao_pct" in i:
-                destaque = f"ℹ️ {i['indicador']} variou {i['variacao_pct']}%"
-                destaques.append(destaque)
+        elif "variacao_pct" in i and i["variacao_pct"] is not None:
+            destaques.append(f"ℹ️ {i['indicador']} variou {i['variacao_pct']}%")
 
     return {
         "dados_individuais": indicadores,
