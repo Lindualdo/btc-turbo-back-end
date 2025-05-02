@@ -160,3 +160,46 @@ def get_macro_environment_mock():
         "peso": 0.10,
         "pontuacao_ponderada": round(pontos * 0.10, 2)
     }
+
+from notion_client import Client
+
+NOTION_TOKEN = "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"
+DATABASE_ID = "1e77419d73ed8035af5ff6ce61d3142f"
+notion = Client(auth=NOTION_TOKEN)
+
+def get_puell_multiple_from_notion():
+    try:
+        response = notion.databases.query(database_id=DATABASE_ID)
+        for row in response["results"]:
+            props = row["properties"]
+            nome = props["indicador"]["title"][0]["plain_text"].strip().lower()
+            if nome == "puell_multiple":
+                valor = float(props["valor"]["number"])
+
+                if 0.3 <= valor <= 1.5:
+                    pontos = 2
+                elif 1.5 < valor <= 2.5:
+                    pontos = 1
+                else:
+                    pontos = 0
+
+                return {
+                    "indicador": "Puell Multiple",
+                    "fonte": "Notion API",
+                    "valor": round(valor, 2),
+                    "pontuacao_bruta": pontos,
+                    "peso": 0.20,
+                    "pontuacao_ponderada": round(pontos * 0.20, 2)
+                }
+
+        raise ValueError("Indicador 'puell_multiple' não encontrado.")
+    except Exception as e:
+        return {
+            "indicador": "Puell Multiple",
+            "fonte": "Notion API",
+            "valor": "erro",
+            "pontuacao_bruta": 0,
+            "peso": 0.20,
+            "pontuacao_ponderada": 0.0,
+            "erro": str(e)
+        }
