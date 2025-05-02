@@ -50,7 +50,7 @@ def get_realized_price_vs_price_atual(tv: TvDatafeed):
     try:
         df = tv.get_hist(symbol="BTCUSDT", exchange="BINANCE", interval=Interval.in_daily, n_bars=1)
         preco_atual = df.iloc[-1]["close"]
-        realized_price = 24000.0  # valor fixado
+        realized_price = 24000.0
 
         variacao_pct = ((preco_atual - realized_price) / realized_price) * 100
 
@@ -128,7 +128,7 @@ def get_puell_multiple():
         }
 
 def get_btc_dominance_mock():
-    tendencia = "alta"  # mock
+    tendencia = "alta"
     if tendencia == "alta":
         pontos = 2
     elif tendencia == "estavel":
@@ -145,20 +145,82 @@ def get_btc_dominance_mock():
         "pontuacao_ponderada": round(pontos * 0.20, 2)
     }
 
-def get_macro_environment_mock():
-    contexto = "expansao"  # mock
-    if contexto == "expansao":
-        pontos = 2
-    elif contexto == "estavel":
-        pontos = 1
-    else:
-        pontos = 0
+def get_juros_tendencia(tv: TvDatafeed):
+    try:
+        df = tv.get_hist(symbol="US10Y", exchange="ECONOMICS", interval=Interval.in_daily, n_bars=90)
+        valor_atual = df["close"].iloc[-1]
+        valor_passado = df["close"].iloc[0]
+        variacao_pct = ((valor_atual - valor_passado) / valor_passado) * 100
 
-    return {
-        "indicador": "Macroambiente (Liquidez/Juros)",
-        "fonte": "Mock (fixado)",
-        "valor": contexto,
-        "pontuacao_bruta": pontos,
-        "peso": 0.10,
-        "pontuacao_ponderada": round(pontos * 0.10, 2)
-    }
+        if variacao_pct <= -5:
+            pontos = 2
+        elif -5 < variacao_pct < 5:
+            pontos = 1
+        else:
+            pontos = 0
+
+        return {
+            "indicador": "Juros (US10Y - 90d)",
+            "fonte": "TradingView (US10Y)",
+            "valor_atual": round(valor_atual, 2),
+            "valor_90d_atras": round(valor_passado, 2),
+            "variacao_pct": round(variacao_pct, 2),
+            "pontuacao_bruta": pontos,
+            "peso": 0.10,
+            "pontuacao_ponderada": round(pontos * 0.10, 2)
+        }
+
+    except Exception as e:
+        return {
+            "indicador": "Juros (US10Y - 90d)",
+            "fonte": "TradingView (US10Y)",
+            "valor_atual": None,
+            "valor_90d_atras": None,
+            "variacao_pct": None,
+            "pontuacao_bruta": 0,
+            "peso": 0.10,
+            "pontuacao_ponderada": 0.0,
+            "erro": str(e)
+        }
+
+def get_expansao_global_from_notion():
+    try:
+        from notion_client import Client
+        NOTION_TOKEN = os.getenv("NOTION_TOKEN")
+        DATABASE_ID = os.getenv("NOTION_DATABASE_ID")
+        notion = Client(auth=NOTION_TOKEN)
+
+        response = notion.databases.query(database_id=DATABASE_ID)
+        for row in response["results"]:
+            props = row["properties"]
+            nome = props["indicador"]["title"][0]["plain_text"].strip().lower()
+            if nome == "expansao_global":
+                valor = float(props["valor"]["number"])
+
+                if valor > 2.0:
+                    pontos = 2
+                elif 0.0 <= valor <= 2.0:
+                    pontos = 1
+                else:
+                    pontos = 0
+
+                return {
+                    "indicador": "Expansão Global",
+                    "fonte": "Notion API",
+                    "valor": round(valor, 2),
+                    "pontuacao_bruta": pontos,
+                    "peso": 0.25,
+                    "pontuacao_ponderada": round(pontos * 0.25, 2)
+                }
+
+        raise ValueError("Indicador 'expansao_global' não encontrado.")
+    except Exception as e:
+        return {
+            "indicador": "Expansão Global",
+            "fonte": "Notion API",
+            "valor": "erro",
+            "pontuacao_bruta": 0,
+            "peso": 0.25,
+            "pontuacao_ponderada": 0.0,
+            "erro": str(e)
+        }
