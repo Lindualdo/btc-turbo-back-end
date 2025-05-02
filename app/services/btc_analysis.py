@@ -127,24 +127,6 @@ def get_puell_multiple():
             "erro": str(e)
         }
 
-def get_btc_dominance_mock():
-    tendencia = "alta"
-    if tendencia == "alta":
-        pontos = 2
-    elif tendencia == "estavel":
-        pontos = 1
-    else:
-        pontos = 0
-
-    return {
-        "indicador": "BTC Dominance Tendência",
-        "fonte": "Mock (fixado)",
-        "valor": tendencia,
-        "pontuacao_bruta": pontos,
-        "peso": 0.20,
-        "pontuacao_ponderada": round(pontos * 0.20, 2)
-    }
-
 def get_juros_tendencia(tv: TvDatafeed):
     try:
         exchanges = ["TVC", "ECONOMICS", "INDEX", "FX_IDC"]
@@ -195,21 +177,6 @@ def get_juros_tendencia(tv: TvDatafeed):
             "erro": str(e)
         }
 
-
-
-    except Exception as e:
-        return {
-            "indicador": "Juros (US10Y - 90d)",
-            "fonte": "TradingView (US10Y)",
-            "valor_atual": None,
-            "valor_90d_atras": None,
-            "variacao_pct": None,
-            "pontuacao_bruta": 0,
-            "peso": 0.10,
-            "pontuacao_ponderada": 0.0,
-            "erro": str(e)
-        }
-
 def get_expansao_global_from_notion():
     try:
         from notion_client import Client
@@ -248,6 +215,53 @@ def get_expansao_global_from_notion():
             "valor": "erro",
             "pontuacao_bruta": 0,
             "peso": 0.25,
+            "pontuacao_ponderada": 0.0,
+            "erro": str(e)
+        }
+
+def get_btc_dominance_tendencia(tv: TvDatafeed):
+    try:
+        df = tv.get_hist(symbol="BTC.D", exchange="CRYPTOCAP", interval=Interval.in_daily, n_bars=30)
+
+        if df is None or df.empty:
+            raise ValueError("BTC.D não retornou dados.")
+
+        valor_atual = df["close"].iloc[-1]
+        valor_30d_atras = df["close"].iloc[0]
+        variacao_pct = ((valor_atual - valor_30d_atras) / valor_30d_atras) * 100
+
+        if variacao_pct >= 2:
+            pontos = 2
+            tendencia = "alta"
+        elif variacao_pct <= -2:
+            pontos = 0
+            tendencia = "queda"
+        else:
+            pontos = 1
+            tendencia = "estável"
+
+        return {
+            "indicador": "BTC Dominance Tendência",
+            "fonte": "TradingView (BTC.D)",
+            "valor_atual": round(valor_atual, 2),
+            "valor_30d_atras": round(valor_30d_atras, 2),
+            "variacao_pct": round(variacao_pct, 2),
+            "tendencia": tendencia,
+            "pontuacao_bruta": pontos,
+            "peso": 0.20,
+            "pontuacao_ponderada": round(pontos * 0.20, 2)
+        }
+
+    except Exception as e:
+        return {
+            "indicador": "BTC Dominance Tendência",
+            "fonte": "TradingView (BTC.D)",
+            "valor_atual": None,
+            "valor_30d_atras": None,
+            "variacao_pct": None,
+            "tendencia": "erro",
+            "pontuacao_bruta": 0,
+            "peso": 0.20,
             "pontuacao_ponderada": 0.0,
             "erro": str(e)
         }
