@@ -147,7 +147,19 @@ def get_btc_dominance_mock():
 
 def get_juros_tendencia(tv: TvDatafeed):
     try:
-        df = tv.get_hist(symbol="US10Y", exchange="ECONOMICS", interval=Interval.in_daily, n_bars=90)
+        exchanges = ["TVC", "ECONOMICS", "INDEX", "FX_IDC"]
+        df = None
+        fonte_usada = None
+
+        for ex in exchanges:
+            df = tv.get_hist(symbol="US10Y", exchange=ex, interval=Interval.in_daily, n_bars=90)
+            if df is not None and not df.empty:
+                fonte_usada = ex
+                break
+
+        if df is None or df.empty:
+            raise ValueError("US10Y não encontrado em nenhuma exchange válida.")
+
         valor_atual = df["close"].iloc[-1]
         valor_passado = df["close"].iloc[0]
         variacao_pct = ((valor_atual - valor_passado) / valor_passado) * 100
@@ -161,7 +173,7 @@ def get_juros_tendencia(tv: TvDatafeed):
 
         return {
             "indicador": "Juros (US10Y - 90d)",
-            "fonte": "TradingView (US10Y)",
+            "fonte": f"TradingView ({fonte_usada})",
             "valor_atual": round(valor_atual, 2),
             "valor_90d_atras": round(valor_passado, 2),
             "variacao_pct": round(variacao_pct, 2),
@@ -169,6 +181,21 @@ def get_juros_tendencia(tv: TvDatafeed):
             "peso": 0.10,
             "pontuacao_ponderada": round(pontos * 0.10, 2)
         }
+
+    except Exception as e:
+        return {
+            "indicador": "Juros (US10Y - 90d)",
+            "fonte": "TradingView",
+            "valor_atual": None,
+            "valor_90d_atras": None,
+            "variacao_pct": None,
+            "pontuacao_bruta": 0,
+            "peso": 0.10,
+            "pontuacao_ponderada": 0.0,
+            "erro": str(e)
+        }
+
+
 
     except Exception as e:
         return {
