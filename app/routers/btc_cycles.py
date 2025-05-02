@@ -11,18 +11,73 @@ from app.services.btc_analysis import (
 
 router = APIRouter()
 
+def consolidar_macro_ambiente(juros: dict, expansao: dict) -> dict:
+    try:
+        pontos_juros = juros.get("pontuacao_bruta", 0)
+        pontos_expansao = expansao.get("pontuacao_bruta", 0)
+
+        peso_juros = 0.40
+        peso_expansao = 0.60
+
+        pontuacao_final = round((pontos_juros * peso_juros) + (pontos_expansao * peso_expansao), 2)
+
+        if pontuacao_final >= 1.5:
+            classificacao = "Expansivo"
+        elif pontuacao_final >= 0.75:
+            classificacao = "Neutro"
+        else:
+            classificacao = "Restritivo"
+
+        return {
+            "indicador": "Macro Ambiente",
+            "fonte": "Cálculo consolidado (Expansão Global + Juros)",
+            "pontuacao_bruta": pontuacao_final,
+            "peso": 0.10,
+            "pontuacao_ponderada": round(pontuacao_final * 0.10, 2),
+            "classificacao": classificacao
+        }
+
+    except Exception as e:
+        return {
+            "indicador": "Macro Ambiente",
+            "fonte": "Cálculo consolidado (Expansão Global + Juros)",
+            "pontuacao_bruta": 0.0,
+            "peso": 0.10,
+            "pontuacao_ponderada": 0.0,
+            "classificacao": "Erro",
+            "erro": str(e)
+        }
+
 @router.get("/btc-cycles")
 def btc_cycles(username: str, password: str):
     tv = TvDatafeed(username=username, password=password)
 
-    indicadores = [
-        get_btc_vs_200d_ema(tv),
-        get_realized_price_vs_price_atual(tv),
-        get_puell_multiple_from_notion(),
-        get_btc_dominance_mock(),
-        get_juros_tendencia(tv),
-        get_expansao_global_from_notion()
-    ]
+    # indicadores individuais
+    ema = get_btc_vs_200d_ema(tv)
+    realized = get_realized_price_vs_price_atual(tv)
+    puell = get_puell_multiple_from_notion()
+    dominancia = get_btc_dominance_mock()
+    juros = get_juros_tendencia(tv)
+    expansao = get_expansao_global_from_notion()
+    macro = consolidar_macro_ambiente(juros, expansao)
+
+    # compila tudo
+    indicadores = [ema, realized, puell, dominancia, macro]
+
+    # pesos manuais por nome
+    pesos_personalizados = {
+        "BTC vs 200D EMA": 0.25,
+        "BTC vs Realized Price": 0.25,
+        "Puell Multiple": 0.20,
+        "BTC Dominance Tendência": 0.20,
+        "Macro Ambiente": 0.10
+    }
+
+    # sobrescreve pesos e ponderações
+    for i in indicadores:
+        peso = pesos_personalizados.get(i["indicador"], i.get("peso", 0))
+        i["peso"] = peso
+        i["pontuacao_ponderada"] = round(i["pontuacao_bruta"] * peso, 2)
 
     total_ponderado = sum(i["pontuacao_ponderada"] for i in indicadores)
     pontuacao_final = round((total_ponderado / 2.0) * 10, 2)
