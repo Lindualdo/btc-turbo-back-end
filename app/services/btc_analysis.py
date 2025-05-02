@@ -1,4 +1,3 @@
-import os
 from tvDatafeed import TvDatafeed, Interval
 import requests
 
@@ -85,41 +84,40 @@ def get_realized_price_vs_price_atual(tv: TvDatafeed):
             "erro": str(e)
         }
 
-def get_puell_multiple_from_notion():
+def get_puell_multiple():
     try:
-        from notion_client import Client
-        NOTION_TOKEN = os.getenv("NOTION_TOKEN")
-        DATABASE_ID = os.getenv("NOTION_DATABASE_ID")
-        notion = Client(auth=NOTION_TOKEN)
+        url = "https://community-api.coinmetrics.io/v4/timeseries/asset-metrics"
+        params = {
+            "assets": "btc",
+            "metrics": "puell_multiple",
+            "frequency": "1d",
+            "limit": 1
+        }
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        data = response.json()
+        valor = float(data['data'][0]['puell_multiple'])
 
-        response = notion.databases.query(database_id=DATABASE_ID)
-        for row in response["results"]:
-            props = row["properties"]
-            nome = props["indicador"]["title"][0]["plain_text"].strip().lower()
-            if nome == "puell_multiple":
-                valor = float(props["valor"]["number"])
+        if 0.3 <= valor <= 1.5:
+            pontos = 2
+        elif 1.5 < valor <= 2.5:
+            pontos = 1
+        else:
+            pontos = 0
 
-                if 0.3 <= valor <= 1.5:
-                    pontos = 2
-                elif 1.5 < valor <= 2.5:
-                    pontos = 1
-                else:
-                    pontos = 0
+        return {
+            "indicador": "Puell Multiple",
+            "fonte": "Coin Metrics API",
+            "valor": round(valor, 2),
+            "pontuacao_bruta": pontos,
+            "peso": 0.20,
+            "pontuacao_ponderada": round(pontos * 0.20, 2)
+        }
 
-                return {
-                    "indicador": "Puell Multiple",
-                    "fonte": "Notion API",
-                    "valor": round(valor, 2),
-                    "pontuacao_bruta": pontos,
-                    "peso": 0.20,
-                    "pontuacao_ponderada": round(pontos * 0.20, 2)
-                }
-
-        raise ValueError("Indicador 'puell_multiple' não encontrado.")
     except Exception as e:
         return {
             "indicador": "Puell Multiple",
-            "fonte": "Notion API",
+            "fonte": "Coin Metrics API",
             "valor": "erro",
             "pontuacao_bruta": 0,
             "peso": 0.20,
