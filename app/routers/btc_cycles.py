@@ -5,7 +5,8 @@ from app.services.btc_analysis import (
     get_realized_price_vs_price_atual,
     get_puell_multiple as get_puell_multiple_from_notion,
     get_btc_dominance_mock,
-    get_macro_environment_mock
+    get_juros_tendencia,
+    get_expansao_global_from_notion
 )
 
 router = APIRouter()
@@ -17,9 +18,10 @@ def btc_cycles(username: str, password: str):
     indicadores = [
         get_btc_vs_200d_ema(tv),
         get_realized_price_vs_price_atual(tv),
-        get_puell_multiple_from_notion(),  # agora corretamente do Notion
+        get_puell_multiple_from_notion(),
         get_btc_dominance_mock(),
-        get_macro_environment_mock()
+        get_juros_tendencia(tv),
+        get_expansao_global_from_notion()
     ]
 
     total_ponderado = sum(i["pontuacao_ponderada"] for i in indicadores)
