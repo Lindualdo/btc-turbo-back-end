@@ -4,7 +4,7 @@ from app.services.btc_analysis import (
     get_btc_vs_200d_ema,
     get_realized_price_vs_price_atual,
     get_puell_multiple as get_puell_multiple_from_notion,
-    get_btc_dominance_mock,
+    get_btc_dominance_tendencia,
     get_juros_tendencia,
     get_expansao_global_from_notion
 )
@@ -52,28 +52,34 @@ def consolidar_macro_ambiente(juros: dict, expansao: dict) -> dict:
 def btc_cycles(username: str, password: str):
     tv = TvDatafeed(username=username, password=password)
 
-    # indicadores individuais
     ema = get_btc_vs_200d_ema(tv)
     realized = get_realized_price_vs_price_atual(tv)
     puell = get_puell_multiple_from_notion()
-    dominancia = get_btc_dominance_mock()
+    dominancia = get_btc_dominance_tendencia(tv)
     juros = get_juros_tendencia(tv)
     expansao = get_expansao_global_from_notion()
     macro = consolidar_macro_ambiente(juros, expansao)
 
-    # compila tudo
-    indicadores = [ema, realized, puell, dominancia, macro]
+    indicadores = [
+        ema,
+        realized,
+        puell,
+        dominancia,
+        juros,     # mantido separado
+        expansao,  # mantido separado
+        macro      # usado no consolidado final
+    ]
 
-    # pesos manuais por nome
     pesos_personalizados = {
         "BTC vs 200D EMA": 0.25,
         "BTC vs Realized Price": 0.25,
         "Puell Multiple": 0.20,
         "BTC Dominance Tendência": 0.20,
-        "Macro Ambiente": 0.10
+        "Macro Ambiente": 0.10,
+        "Juros (US10Y - 90d)": 0.0,
+        "Expansão Global": 0.0
     }
 
-    # sobrescreve pesos e ponderações
     for i in indicadores:
         peso = pesos_personalizados.get(i["indicador"], i.get("peso", 0))
         i["peso"] = peso
