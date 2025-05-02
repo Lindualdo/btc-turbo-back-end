@@ -1,4 +1,5 @@
 from fastapi import APIRouter
+from datetime import datetime
 from tvDatafeed import TvDatafeed
 from app.services.btc_analysis import (
     get_btc_vs_200d_ema,
@@ -65,9 +66,9 @@ def btc_cycles(username: str, password: str):
         realized,
         puell,
         dominancia,
-        juros,     # mantido separado
-        expansao,  # mantido separado
-        macro      # usado no consolidado final
+        juros,
+        expansao,
+        macro
     ]
 
     pesos_personalizados = {
@@ -111,13 +112,18 @@ def btc_cycles(username: str, password: str):
             destaques.append(f"🔹 {i['indicador']} está forte")
         elif i["pontuacao_bruta"] == 0:
             destaques.append(f"⚠️ {i['indicador']} está fraco")
+        else:
+            if "variacao_pct" in i:
+                destaque = f"ℹ️ {i['indicador']} variou {i['variacao_pct']}%"
+                destaques.append(destaque)
 
     return {
         "dados_individuais": indicadores,
         "dados_consolidados": {
             "pontuacao_final": pontuacao_final,
             "classificacao": classificacao_final,
-            "estrategia": estrategia_final
+            "estrategia": estrategia_final,
+            "data_processamento": datetime.utcnow().isoformat() + "Z"
         },
         "resumo_executivo": destaques
     }
