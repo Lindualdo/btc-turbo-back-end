@@ -26,22 +26,30 @@ async def get_emas(
     """
     Busca histórico de preços no TradingView e calcula EMAs para os períodos definidos.
     """
-    # DEBUG: verificar que esta versão está rodando
+    # DEBUG: verificar execução da função
     print("🔥 running updated get_emas at", __file__)
     try:
         intervals = {"15m": "15", "1h": "60", "4h": "240", "1d": "D", "1w": "W"}
         periods = [17, 34, 144, 305, 610]
         results: List[EMAData] = []
         for interval_name, interval in intervals.items():
+            # Obter dados históricos
             df = tv.get_hist(
                 symbol=settings.TV_SYMBOL,
                 exchange=settings.TV_EXCHANGE,
                 interval=interval,
                 n_bars=max(periods) + 1
             )
+            # Validar retorno
+            if not isinstance(df, pd.DataFrame):
+                raise HTTPException(
+                    status_code=502,
+                    detail=f"Falha ao obter dados do TradingView: {df}"
+                )
             if df.empty or 'close' not in df.columns:
                 raise HTTPException(status_code=500, detail=f"Dados insuficientes para intervalo {interval_name}")
 
+            # Calcula EMA mais longa disponível
             ema_series = df['close'].ewm(span=periods[-1], adjust=False).mean()
             price_val = float(df['close'].iloc[-1])
             volume_val = float(df['volume'].iloc[-1]) if 'volume' in df.columns else 0.0
