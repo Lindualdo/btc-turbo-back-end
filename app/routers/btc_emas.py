@@ -33,26 +33,24 @@ async def get_emas(
         periods = [17, 34, 144, 305, 610]
         results: List[EMAData] = []
         for interval_name, interval in intervals.items():
-            # Obter dados históricos
             df = tv.get_hist(
                 symbol=settings.TV_SYMBOL,
                 exchange=settings.TV_EXCHANGE,
                 interval=interval,
                 n_bars=max(periods) + 1
             )
-            # Validar retorno
+            # trata erro de login ou retorno inesperado
             if not isinstance(df, pd.DataFrame):
                 raise HTTPException(
                     status_code=502,
                     detail=f"Falha ao obter dados do TradingView: {df}"
                 )
-            if df.empty or 'close' not in df.columns:
+            if df.empty or "close" not in df.columns:
                 raise HTTPException(status_code=500, detail=f"Dados insuficientes para intervalo {interval_name}")
 
-            # Calcula EMA mais longa disponível
-            ema_series = df['close'].ewm(span=periods[-1], adjust=False).mean()
-            price_val = float(df['close'].iloc[-1])
-            volume_val = float(df['volume'].iloc[-1]) if 'volume' in df.columns else 0.0
+            ema_series = df["close"].ewm(span=periods[-1], adjust=False).mean()
+            price_val = float(df["close"].iloc[-1])
+            volume_val = float(df["volume"].iloc[-1]) if "volume" in df.columns else 0.0
 
             results.append(
                 EMAData(
