@@ -17,7 +17,7 @@ class EMAData(BaseModel):
 
 # ✅ Credenciais fixas temporárias (apenas para teste!)
 TV_USERNAME = "lindualdosantos"
-TV_PASSWORD = "Portugal@2024.TV"
+TV_PASSWORD = "Portugal@2024.PT"
 
 async def _calculate_emas(settings: Settings) -> List[EMAData]:
     print("🔥 running updated get_emas at", __file__)
@@ -35,11 +35,15 @@ async def _calculate_emas(settings: Settings) -> List[EMAData]:
                 interval=interval,
                 n_bars=max(periods) + 1
             )
+
+            # 🔍 Logs de debug para inspeção
+            print(f"✅ [{interval_name}] tipo de retorno: {type(df)}")
+            print(f"🔍 [{interval_name}] conteúdo retornado: {df}")
+
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Erro ao consultar TradingView: {str(e)}")
 
         if not isinstance(df, pd.DataFrame):
-            print("⚠️ Retorno inesperado:", df)
             raise HTTPException(status_code=502, detail=f"Retorno inválido do TradingView para {interval_name}: {df}")
 
         if df.empty or "close" not in df.columns:
