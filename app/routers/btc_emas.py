@@ -26,6 +26,8 @@ async def get_emas(
     """
     Busca histórico de preços no TradingView e calcula EMAs para os períodos definidos.
     """
+    # DEBUG: verificar que esta versão está rodando
+    print("🔥 running updated get_emas at", __file__)
     try:
         intervals = {"15m": "15", "1h": "60", "4h": "240", "1d": "D", "1w": "W"}
         periods = [17, 34, 144, 305, 610]
