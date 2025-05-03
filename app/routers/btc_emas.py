@@ -1,77 +1,56 @@
 # app/routers/btc_emas.py
 
-from fastapi import APIRouter, HTTPException, Depends
-from tvDatafeed import TvDatafeed
-from app.config import get_settings, Settings
-from pydantic import BaseModel
-from typing import List
+from fastapi import APIRouter, HTTPException, Query
+from tvDatafeed import TvDatafeed, Interval
+from app.utils.ema_utils import calcular_emas
 import pandas as pd
 
 router = APIRouter()
 
-class EMAData(BaseModel):
-    interval: str
-    current_price: float
-    current_volume: float
-    ema: float
+interval_map = {
+    "15m": Interval.in_15_minute,
+    "1h": Interval.in_1_hour,
+    "4h": Interval.in_4_hour,
+    "1d": Interval.in_daily,
+    "1w": Interval.in_weekly
+}
 
-# ✅ Credenciais fixas temporárias (apenas para teste!)
-TV_USERNAME = "aldosantos_pt"
-TV_PASSWORD = "Nm38kRwB3W$qDz&"
+emas_list = [17, 34, 144, 305, 610]
 
-async def _calculate_emas(settings: Settings) -> List[EMAData]:
-    print("🔥 running updated get_emas at", __file__)
-    tv = TvDatafeed(username=TV_USERNAME, password=TV_PASSWORD)
+@router.get("/btc-emas", summary="Calcula EMAs do BTC", tags=["EMAs"])
+def get_all_emas(
+    username: str = Query(..., description="Usuário do TradingView"),
+    password: str = Query(..., description="Senha do TradingView")
+):
+    try:
+        tv = TvDatafeed(username=username, password=password)
+        result = {"emas": {}}
+        price = None
+        volume = None
 
-    intervals = {"15m": "15", "1h": "60", "4h": "240", "1d": "D", "1w": "W"}
-    periods = [17, 34, 144, 305, 610]
-    results: List[EMAData] = []
+        for key, interval in interval_map.items():
+            try:
+                df = tv.get_hist(symbol="BTCUSDT", exchange="BINANCE", interval=interval, n_bars=500)
 
-    for interval_name, interval in intervals.items():
-        try:
-            df = tv.get_hist(
-                symbol=settings.TV_SYMBOL,
-                exchange=settings.TV_EXCHANGE,
-                interval=interval,
-                n_bars=max(periods) + 1
-            )
+                if not isinstance(df, pd.DataFrame) or df.empty:
+                    raise ValueError(f"Sem dados retornados para o intervalo {key}")
 
-            # 🔍 Logs de debug para inspeção
-            print(f"✅ [{interval_name}] tipo de retorno: {type(df)}")
-            print(f"🔍 [{interval_name}] conteúdo retornado: {df}")
+                df = calcular_emas(df, emas_list)
+                latest = df.iloc[-1]
 
-        except Exception as e:
-            print(f"❌ [{interval_name}] erro ao chamar tv.get_hist(): {str(e)}")
-            raise HTTPException(status_code=500, detail=f"Erro ao consultar TradingView: {str(e)}")
+                if price is None:
+                    price = latest["close"]
+                    volume = latest.get("volume", 0.0)
 
-        if not isinstance(df, pd.DataFrame):
-            raise HTTPException(status_code=502, detail=f"Retorno inválido do TradingView para {interval_name}: {df}")
+                result["emas"][key] = {f"EMA_{p}": latest.get(f"EMA_{p}", None) for p in emas_list}
 
-        if df.empty or "close" not in df.columns:
-            raise HTTPException(status_code=500, detail=f"Dados insuficientes para intervalo {interval_name}")
+            except Exception as e:
+                raise HTTPException(status_code=502, detail=f"Erro ao processar intervalo {key}: {str(e)}")
 
-        try:
-            ema_series = df["close"].ewm(span=periods[-1], adjust=False).mean()
-            price_val = float(df["close"].iloc[-1])
-            volume_val = float(df["volume"].iloc[-1]) if "volume" in df.columns else 0.0
+        result["preco_atual"] = price
+        result["volume_atual"] = volume
 
-            results.append(
-                EMAData(
-                    interval=interval_name,
-                    current_price=price_val,
-                    current_volume=volume_val,
-                    ema=float(ema_series.iloc[-1])
-                )
-            )
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Erro ao calcular EMA para {interval_name}: {str(e)}")
+        return result
 
-    return results
-
-@router.get("", response_model=List[EMAData], summary="Calcula EMAs (v1)", tags=["EMAs"])
-async def get_emas_v1(settings: Settings = Depends(get_settings)) -> List[EMAData]:
-    return await _calculate_emas(settings)
-
-@router.get("/v2", response_model=List[EMAData], summary="Calcula EMAs (v2)", tags=["EMAs"])
-async def get_emas_v2(settings: Settings = Depends(get_settings)) -> List[EMAData]:
-    return await _calculate_emas(settings)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao conectar com TradingView: {str(e)}")
