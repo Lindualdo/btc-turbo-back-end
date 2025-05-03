@@ -1,41 +1,56 @@
-from fastapi import APIRouter
-from tvDatafeed import TvDatafeed, Interval
-from app.utils.ema_utils import calcular_emas
+# app/routers/btc_emas.py
+from fastapi import APIRouter, Depends, HTTPException
+from tvDatafeed import TvDatafeed
+from app.dependencies import get_tv_client
+from app.config import Settings, get_settings
+from pydantic import BaseModel
+from typing import List
 
 router = APIRouter()
 
-interval_map = {
-    "15m": Interval.in_15_minute,
-    "1h": Interval.in_1_hour,
-    "4h": Interval.in_4_hour,
-    "1d": Interval.in_daily,
-    "1w": Interval.in_weekly
-}
+class EMAData(BaseModel):
+    """
+    Schema para representar os dados de EMA calculados.
+    """
+    interval: str
+    current_price: float
+    current_volume: float
+    ema: float
 
-emas_list = [17, 34, 144, 305, 610]
-
-@router.get("/btc-emas")
-def get_all_emas(username: str, password: str):
+@router.get("/", response_model=List[EMAData], summary="Calcula EMAs para vários períodos", tags=["EMAs"])
+async def get_emas(
+    tv: TvDatafeed = Depends(get_tv_client),
+    settings: Settings = Depends(get_settings),
+):
+    """
+    Busca histórico de preços no TradingView e calcula EMAs para os períodos definidos.
+    """
     try:
-        tv = TvDatafeed(username=username, password=password)
-        result = {"emas": {}}
-        price = None
-        volume = None
+        intervals = {"15m": "15", "1h": "60", "4h": "240", "1d": "D", "1w": "W"}
+        periods = [17, 34, 144, 305, 610]
+        results: List[EMAData] = []
+        for interval_name, interval in intervals.items():
+            df = tv.get_hist(
+                symbol=settings.TV_SYMBOL,
+                exchange=settings.TV_EXCHANGE,
+                interval=interval,
+                n_bars=max(periods) + 1
+            )
+            if df.empty or 'close' not in df.columns:
+                raise HTTPException(status_code=500, detail=f"Dados insuficientes para intervalo {interval_name}")
 
-        for key, interval in interval_map.items():
-            df = tv.get_hist(symbol="BTCUSDT", exchange="BINANCE", interval=interval, n_bars=500)
-            df = calcular_emas(df, emas_list)
-            latest = df.iloc[-1]
-
-            if price is None:
-                price = latest["close"]
-                volume = latest["volume"]
-
-            result["emas"][key] = {f"EMA_{p}": latest[f"EMA_{p}"] for p in emas_list}
-
-        result["price"] = price
-        result["volume"] = volume
-
-        return result
+            # Calcula EMA mais longa disponível
+            ema_series = df['close'].ewm(span=periods[-1], adjust=False).mean()
+            results.append(
+                EMAData(
+                    interval=interval_name,
+                    current_price=float(df['close'].iloc[-1]),
+                    current_volume=float(df.get('volume', pd.Series()).iloc[-1] if 'volume' in df.columns else 0.0),
+                    ema=float(ema_series.iloc[-1])
+                )
+            )
+        return results
+    except HTTPException:
+        raise
     except Exception as e:
-        return {"status": "error", "message": str(e)}
+        raise HTTPException(status_code=500, detail=str(e))
