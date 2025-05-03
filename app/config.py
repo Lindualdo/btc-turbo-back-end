@@ -5,7 +5,7 @@ from typing import List
 
 class Settings(BaseSettings):
     # Application
-    APP_NAME: str = "BTC Cycle API"
+    APP_NAME: str = "Aldo - BTC TURBO"
     APP_VERSION: str = "1.0.1"
     HOST: str = Field("0.0.0.0", description="Host address for Uvicorn")
     PORT: int = Field(8000, description="Port for Uvicorn server")
