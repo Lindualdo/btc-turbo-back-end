@@ -1,21 +1,32 @@
 # app/main.py
+
 from fastapi import FastAPI, Request, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from app.config import get_settings, Settings
 from app.routers import btc_emas, btc_cycles
 
+# Carrega configurações globais
 settings: Settings = get_settings()
 
-app = FastAPI(title=settings.APP_NAME, version=settings.APP_VERSION)
+# Instancia a API com metadados
+app = FastAPI(
+    title=settings.APP_NAME,
+    version=settings.APP_VERSION,
+    description="API de indicadores técnicos e de ciclos do BTC",
+    contact={"name": "Equipe BTC Turbo", "email": "contato@btcturbo.com"},
+)
 
+# Tratamento genérico de exceções
 @app.exception_handler(Exception)
 async def generic_exception_handler(request: Request, exc: Exception):
     return JSONResponse(status_code=500, content={"detail": str(exc)})
 
+# Endpoint de saúde da API
 @app.get("/health", summary="Health Check", tags=["Debug"])
 async def health():
     return {"status": "ok"}
 
+# Endpoint para exibir configurações carregadas
 @app.get("/config", summary="Configurações Ativas", tags=["Debug"])
 async def get_config(settings: Settings = Depends(get_settings)):
     return {
@@ -27,7 +38,6 @@ async def get_config(settings: Settings = Depends(get_settings)):
         "cache_ttl": settings.CACHE_EXPIRATION_SECONDS
     }
 
-
+# Registro dos routers com prefixo versionado
 app.include_router(btc_emas.router, prefix="/api/v1/btc-emas")
 app.include_router(btc_cycles.router, prefix="/api/v1/btc-cycles")
-
