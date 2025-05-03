@@ -51,7 +51,7 @@ def consolidar_macro_ambiente(juros: dict, expansao: dict) -> dict:
             "erro": str(e)
         }
 
-@router.get("/btc-cycles")
+@router.get("", summary="Análise de ciclos do BTC", tags=["Ciclos"])
 def btc_cycles(settings: Settings = Depends(get_settings)):
     tv = TvDatafeed(username=settings.TV_USERNAME, password=settings.TV_PASSWORD)
 
