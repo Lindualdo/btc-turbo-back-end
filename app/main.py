@@ -27,5 +27,7 @@ async def get_config(settings: Settings = Depends(get_settings)):
         "cache_ttl": settings.CACHE_EXPIRATION_SECONDS
     }
 
+
 app.include_router(btc_emas.router, prefix="/api/v1/btc-emas")
 app.include_router(btc_cycles.router, prefix="/api/v1/btc-cycles")
+
