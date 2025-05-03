@@ -179,3 +179,57 @@
 4. Estruturar testes automatizados e pipeline de qualidade de código.
 
 *Este documento serve como base para alinharmos padrões e metodologia antes de avançar com o desenvolvimento das próximas APIs.*
+
+### Próximos Passos Adicionais
+
+5. Criar o módulo de configuração centralizada (`config.py`) usando `pydantic.BaseSettings` e incluir um arquivo `.env.example` para armazenar credenciais (TradingView, Notion), IDs de bases Notion, pesos, limites e parâmetros de aplicação.
+
+---
+
+## 9. Melhores Práticas de Git
+
+Para garantir versionamento organizado e evitar quebras inadvertidas, recomendamos adotar as seguintes práticas:
+
+1. **Estratégia de Branching**:
+
+   * Use **Git Flow** (branches `main`, `develop`, `feature/*`, `release/*`, `hotfix/*`) ou **Trunk-Based Development** com pequenas branches curtas e deploy contínuo.
+   * Mantenha `main` protegido e sempre estável; `develop` para integração de features.
+2. **Naming Conventions**:
+
+   * Branches de feature: `feature/<descrição-curta>` (ex.: `feature/config-module`).
+   * Branches de bugfix: `bugfix/<descrição>`.
+   * Branches de release: `release/vX.Y.Z`.
+   * Prefixo `hotfix/` para correções emergenciais em produção.
+3. **Conventional Commits**:
+
+   * Adote o padrão `<tipo>(escopo?): <descrição>` (ex.: `feat(router): adicionar healthcheck endpoint`).
+   * Tipos comuns: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `perf`.
+4. **Pull Requests**:
+
+   * Crie PRs para todas as mudanças, com descrição clara e referenciando issues relacionadas.
+   * Utilize templates de PR que incluam checklist de testes, documentação e validação de segurança.
+   * Peça pelo menos uma revisão de colega antes de mergear.
+5. **Proteção de Branches**:
+
+   * Habilite **branch protection** em `main` e `develop`: exigir status checks (CI passing), revisão de PRs e aprovação de QA.
+   * Desative force-push nessas branches.
+6. **Merge vs Rebase**:
+
+   * Prefira **merge commits** para preservar histórico de feature, ou **rebase e fast-forward** em projetos que preferem histórico linear.
+   * Combine com squashing (`squash and merge`) para PRs pequenas, mantendo o histórico limpo.
+7. **Versionamento Semântico (SemVer)**:
+
+   * Adote SemVer (`MAJOR.MINOR.PATCH`) para releases.
+   * Utilize tags Git (`v1.2.3`) e crie changelogs (manual ou automatizado via GitHub releases).
+8. **Automação de CI/CD**:
+
+   * Configure pipelines para executar linters, testes, security scan (ex.: `bandit`, `snyk`) e build da imagem Docker.
+   * Ao mergear em `main`, automatize deploy em staging ou produção.
+9. **Documentação de Git**:
+
+   * Mantenha um arquivo `CONTRIBUTING.md` com todas essas diretrizes.
+   * Atualize `README.md` com informações de configuração de ambiente e comandos comuns (build, test, lint, format).
+
+---
+
+*Com estas práticas, garantiremos um fluxo de trabalho mais estável, previsível e colaborativo.*
