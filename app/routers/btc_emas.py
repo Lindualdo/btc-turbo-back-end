@@ -41,6 +41,7 @@ async def _calculate_emas(settings: Settings) -> List[EMAData]:
             print(f"🔍 [{interval_name}] conteúdo retornado: {df}")
 
         except Exception as e:
+            print(f"❌ [{interval_name}] erro ao chamar tv.get_hist(): {str(e)}")
             raise HTTPException(status_code=500, detail=f"Erro ao consultar TradingView: {str(e)}")
 
         if not isinstance(df, pd.DataFrame):
