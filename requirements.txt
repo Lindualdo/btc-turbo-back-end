@@ -5,3 +5,4 @@ git+https://github.com/rongardF/tvdatafeed.git
 beautifulsoup4
 requests
 notion-client
+pydantic-settings>=2.0.0

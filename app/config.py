@@ -1,5 +1,6 @@
 # app/config.py
-from pydantic import BaseSettings, Field, AnyHttpUrl
+from pydantic_settings import BaseSettings
+from pydantic import Field, AnyHttpUrl
 from typing import List
 
 class Settings(BaseSettings):
@@ -38,14 +39,14 @@ class Settings(BaseSettings):
         env_file_encoding = "utf-8"
 
 
-# Instantiate a single settings object
 def get_settings() -> Settings:
+    """
+    Retorna uma instância singleton das configurações carregadas do .env
+    """
     return Settings()
 
-
 # .env.example (colocar na raiz do projeto)
-#
-# Copie este arquivo para `.env` e preencha as variáveis abaixo
+# COPIE este arquivo para `.env` e preencha as variáveis abaixo
 #
 # APP_NAME=BTC Cycle API
 # APP_VERSION=1.0.0
