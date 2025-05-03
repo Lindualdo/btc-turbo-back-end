@@ -43,14 +43,16 @@ app.include_router(
     dependencies=[Depends(get_settings)]
 )
 
-# Exemplo de injeção de settings em endpoint
 @app.get("/config", tags=["Debug"], summary="Retorna configurações ativas")
 async def get_config(settings: Settings = Depends(get_settings)):
     return {
+        "app_name": settings.APP_NAME,
+        "app_version": settings.APP_VERSION,
         "host": settings.HOST,
         "port": settings.PORT,
         "tv_symbol": settings.TV_SYMBOL,
         "cache_ttl": settings.CACHE_EXPIRATION_SECONDS
     }
+
 
 # Executar uvicorn via CLI: uvicorn app.main:app --host ... --port ...
