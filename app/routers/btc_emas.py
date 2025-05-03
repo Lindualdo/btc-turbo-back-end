@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from tvDatafeed import TvDatafeed
 from app.dependencies import get_tv_client
-from app.config import Settings, get_settings
+from app.config import get_settings, Settings
 from pydantic import BaseModel
 from typing import List
 import pandas as pd
@@ -18,7 +18,7 @@ class EMAData(BaseModel):
     current_volume: float
     ema: float
 
-@router.get("/", response_model=List[EMAData], summary="Calcula EMAs para vários períodos", tags=["EMAs"])
+@router.get("", response_model=List[EMAData], summary="Calcula EMAs para vários períodos", tags=["EMAs"])
 async def get_emas(
     tv: TvDatafeed = Depends(get_tv_client),
     settings: Settings = Depends(get_settings),
@@ -40,18 +40,14 @@ async def get_emas(
             if df.empty or 'close' not in df.columns:
                 raise HTTPException(status_code=500, detail=f"Dados insuficientes para intervalo {interval_name}")
 
-            # Calcula EMA mais longa disponível
             ema_series = df['close'].ewm(span=periods[-1], adjust=False).mean()
-            # Obtém volume atual ou usa zero se não existir
-            if 'volume' in df.columns:
-                volume_val = float(df['volume'].iloc[-1])
-            else:
-                volume_val = 0.0
+            price_val = float(df['close'].iloc[-1])
+            volume_val = float(df['volume'].iloc[-1]) if 'volume' in df.columns else 0.0
 
             results.append(
                 EMAData(
                     interval=interval_name,
-                    current_price=float(df['close'].iloc[-1]),
+                    current_price=price_val,
                     current_volume=volume_val,
                     ema=float(ema_series.iloc[-1])
                 )
