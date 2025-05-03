@@ -5,6 +5,7 @@ from app.dependencies import get_tv_client
 from app.config import Settings, get_settings
 from pydantic import BaseModel
 from typing import List
+import pandas as pd
 
 router = APIRouter()
 
@@ -21,7 +22,7 @@ class EMAData(BaseModel):
 async def get_emas(
     tv: TvDatafeed = Depends(get_tv_client),
     settings: Settings = Depends(get_settings),
-):
+) -> List[EMAData]:
     """
     Busca histórico de preços no TradingView e calcula EMAs para os períodos definidos.
     """
@@ -41,11 +42,17 @@ async def get_emas(
 
             # Calcula EMA mais longa disponível
             ema_series = df['close'].ewm(span=periods[-1], adjust=False).mean()
+            # Obtém volume atual ou usa zero se não existir
+            if 'volume' in df.columns:
+                volume_val = float(df['volume'].iloc[-1])
+            else:
+                volume_val = 0.0
+
             results.append(
                 EMAData(
                     interval=interval_name,
                     current_price=float(df['close'].iloc[-1]),
-                    current_volume=float(df.get('volume', pd.Series()).iloc[-1] if 'volume' in df.columns else 0.0),
+                    current_volume=volume_val,
                     ema=float(ema_series.iloc[-1])
                 )
             )
