@@ -1,13 +1,11 @@
 # app/routers/btc_emas.py
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException
 from tvDatafeed import TvDatafeed
-from app.dependencies import get_tv_client
 from app.config import get_settings, Settings
 from pydantic import BaseModel
 from typing import List
 import pandas as pd
-import logging
 
 router = APIRouter()
 
@@ -17,8 +15,14 @@ class EMAData(BaseModel):
     current_volume: float
     ema: float
 
-async def _calculate_emas(tv: TvDatafeed, settings: Settings) -> List[EMAData]:
+# ✅ Credenciais fixas temporárias (para debug)
+TV_USERNAME = "lindualdosantos"
+TV_PASSWORD = "Portugal@2024.TV"
+
+async def _calculate_emas(settings: Settings) -> List[EMAData]:
     print("🔥 running updated get_emas at", __file__)
+    tv = TvDatafeed(username=TV_USERNAME, password=TV_PASSWORD)
+
     intervals = {"15m": "15", "1h": "60", "4h": "240", "1d": "D", "1w": "W"}
     periods = [17, 34, 144, 305, 610]
     results: List[EMAData] = []
@@ -35,6 +39,7 @@ async def _calculate_emas(tv: TvDatafeed, settings: Settings) -> List[EMAData]:
             raise HTTPException(status_code=500, detail=f"Erro ao consultar TradingView: {str(e)}")
 
         if not isinstance(df, pd.DataFrame):
+            print("⚠️ Retorno inesperado:", df)
             raise HTTPException(status_code=502, detail=f"Retorno inválido do TradingView para {interval_name}: {df}")
 
         if df.empty or "close" not in df.columns:
@@ -60,14 +65,12 @@ async def _calculate_emas(tv: TvDatafeed, settings: Settings) -> List[EMAData]:
 
 @router.get("", response_model=List[EMAData], summary="Calcula EMAs (v1)", tags=["EMAs"])
 async def get_emas_v1(
-    tv: TvDatafeed = Depends(get_tv_client),
     settings: Settings = Depends(get_settings),
 ) -> List[EMAData]:
-    return await _calculate_emas(tv, settings)
+    return await _calculate_emas(settings)
 
 @router.get("/v2", response_model=List[EMAData], summary="Calcula EMAs (v2)", tags=["EMAs"])
 async def get_emas_v2(
-    tv: TvDatafeed = Depends(get_tv_client),
     settings: Settings = Depends(get_settings),
 ) -> List[EMAData]:
-    return await _calculate_emas(tv, settings)
+    return await _calculate_emas(settings)
