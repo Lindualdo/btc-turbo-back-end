@@ -1,4 +1,3 @@
-✅ README.md — Versão Refatorada Congelada (v1.1.0)
 
 # 🧠 BTC Turbo API — v1.1.0
 
@@ -9,68 +8,54 @@ API em FastAPI para cálculo de indicadores técnicos e análise de ciclos do BT
 ## 🌐 Endpoints (Produção)
 
 ### 🔁 Ciclos BTC
+```
 GET /api/v1/btc-cycles/btc-cycles?username=SEU_USER&password=SUA_SENHA
-
-shell
-Copiar
-Editar
+```
 
 ### 📊 EMAs BTC
+```
 GET /api/v1/btc-emas/btc-emas?username=SEU_USER&password=SUA_SENHA
-
-shell
-Copiar
-Editar
+```
 
 ### 🩺 Health Check
+```
 GET /health
-
-shell
-Copiar
-Editar
+```
 
 ### ⚙️ Configurações Ativas
+```
 GET /config
-
-shell
-Copiar
-Editar
+```
 
 ### 📘 Swagger UI (Documentação)
+```
 GET /docs
-
-shell
-Copiar
-Editar
+```
 
 ### 🧾 OpenAPI JSON
+```
 GET /openapi.json
-
-yaml
-Copiar
-Editar
+```
 
 ---
 
 ## 🧱 Arquitetura do Projeto
 
+```
 .
 ├── app/
-│ ├── main.py # Instância FastAPI e registro de routers
-│ ├── config.py # Configurações da aplicação (pydantic)
-│ ├── routers/ # Endpoints organizados por tema
-│ │ ├── btc_emas.py
-│ │ ├── btc_cycles.py
-│ ├── utils/ # Lógica reutilizável (ex: calcular_emas)
-│ └── services/ # Serviços e integrações (ex: TradingView)
+│   ├── main.py             # Instância FastAPI e registro de routers
+│   ├── config.py           # Configurações da aplicação (pydantic)
+│   ├── routers/            # Endpoints organizados por tema
+│   │   ├── btc_emas.py
+│   │   ├── btc_cycles.py
+│   ├── utils/              # Lógica reutilizável (ex: calcular_emas)
+│   └── services/           # Serviços e integrações (ex: TradingView)
 ├── requirements.txt
 ├── Dockerfile
 ├── .env.example
 └── README.md
-
-yaml
-Copiar
-Editar
+```
 
 ---
 
@@ -111,20 +96,4 @@ Editar
 Versão congelada: v1.1.0
 Status: ✅ Estável
 Base: Refatoração pós-v1.0.0 com EMAs e Ciclos funcionando
-yaml
-Copiar
-Editar
-
----
-
-### ✅ Pronto para commit
-
-Você pode salvar esse conteúdo como `README.md`, dar commit e criar a tag `v1.1.0` como base da nova fase do projeto.
-
-Quer que eu gere esse arquivo agora e prepare a tag pra você documentar?
-
-
-
-
-
-
+```
