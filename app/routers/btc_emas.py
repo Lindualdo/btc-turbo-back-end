@@ -16,8 +16,8 @@ class EMAData(BaseModel):
     ema: float
 
 # ✅ Credenciais fixas temporárias (apenas para teste!)
-TV_USERNAME = "lindualdosantos"
-TV_PASSWORD = "Portugal@2024.PT"
+TV_USERNAME = "aldosantos_pt"
+TV_PASSWORD = "Nm38kRwB3W$qDz&"
 
 async def _calculate_emas(settings: Settings) -> List[EMAData]:
     print("🔥 running updated get_emas at", __file__)
