@@ -3,6 +3,8 @@ FROM python:3.11-slim
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
+ARG CACHEBUST=1
+
 RUN apt-get update && apt-get install -y build-essential git curl && apt-get clean
 
 COPY . .
