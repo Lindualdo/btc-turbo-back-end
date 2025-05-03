@@ -1,7 +1,9 @@
 # app/config.py
+
 from pydantic_settings import BaseSettings
-from pydantic import Field, AnyHttpUrl
+from pydantic import Field
 from typing import List
+from functools import lru_cache
 
 class Settings(BaseSettings):
     # Application
@@ -39,37 +41,9 @@ class Settings(BaseSettings):
         env_file_encoding = "utf-8"
 
 
+@lru_cache()
 def get_settings() -> Settings:
     """
     Retorna uma instância singleton das configurações carregadas do .env
     """
     return Settings()
-
-# .env.example (colocar na raiz do projeto)
-# COPIE este arquivo para `.env` e preencha as variáveis abaixo
-#
-# APP_NAME=BTC Cycle API
-# APP_VERSION=1.0.0
-# HOST=0.0.0.0
-# PORT=8000
-#
-# TV_USERNAME=seu_usuario_tv
-# TV_PASSWORD=sua_senha_tv
-#
-# NOTION_TOKEN=seu_token_notion
-# NOTION_DATABASE_ID_EMA=seu_id_database_ema
-# NOTION_DATABASE_ID_MACRO=seu_id_database_macro
-#
-# # Opcional: ajuste pesos conforme necessidade
-# WEIGHT_EMA_200=0.25
-# WEIGHT_REALIZED_PRICE=0.25
-# WEIGHT_PUELL_MULTIPLE=0.20
-# WEIGHT_BTC_DOMINANCE=0.20
-# WEIGHT_MACRO_M2=0.60
-# WEIGHT_MACRO_US10Y=0.40
-#
-# CACHE_EXPIRATION_SECONDS=300
-#
-# # TradingView defaults
-# TV_SYMBOL=BTCUSDT
-# TV_EXCHANGE=BINANCE
