@@ -1,8 +1,8 @@
-# app/routers/btc_emas.py
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Depends
 from tvDatafeed import TvDatafeed, Interval
 from app.utils.ema_utils import calcular_emas
+from app.config import Settings, get_settings
 import pandas as pd
 
 router = APIRouter()
@@ -18,12 +18,9 @@ interval_map = {
 emas_list = [17, 34, 144, 305, 610]
 
 @router.get("/btc-emas", summary="Calcula EMAs do BTC", tags=["EMAs"])
-def get_all_emas(
-    username: str = Query(..., description="Usuário do TradingView"),
-    password: str = Query(..., description="Senha do TradingView")
-):
+def get_all_emas(settings: Settings = Depends(get_settings)):
     try:
-        tv = TvDatafeed(username=username, password=password)
+        tv = TvDatafeed(username=settings.TV_USERNAME, password=settings.TV_PASSWORD)
         result = {"emas": {}}
         price = None
         volume = None

@@ -1,6 +1,8 @@
-from fastapi import APIRouter
+
+from fastapi import APIRouter, Depends
 from datetime import datetime
 from tvDatafeed import TvDatafeed
+from app.config import get_settings, Settings
 from app.services.btc_analysis import (
     get_btc_vs_200d_ema,
     get_realized_price_vs_price_atual,
@@ -50,8 +52,8 @@ def consolidar_macro_ambiente(juros: dict, expansao: dict) -> dict:
         }
 
 @router.get("/btc-cycles")
-def btc_cycles(username: str, password: str):
-    tv = TvDatafeed(username=username, password=password)
+def btc_cycles(settings: Settings = Depends(get_settings)):
+    tv = TvDatafeed(username=settings.TV_USERNAME, password=settings.TV_PASSWORD)
 
     ema = get_btc_vs_200d_ema(tv)
     realized = get_realized_price_vs_price_atual(tv)
