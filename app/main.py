@@ -1,49 +1,30 @@
 # app/main.py
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Request, Depends, HTTPException
+from fastapi.responses import JSONResponse
 from app.config import get_settings, Settings
 from app.routers import btc_emas, btc_cycles
 
-# Instância da aplicação com metadados
-settings = get_settings()
+# Carrega configurações
+settings: Settings = get_settings()
+
+# Instancia aplicação FastAPI
 app = FastAPI(
     title=settings.APP_NAME,
-    version=settings.APP_VERSION,
-    description="API para análise de ciclos do Bitcoin",
-    docs_url="/docs",
-    redoc_url="/redoc"
+    version=settings.APP_VERSION
 )
 
-# Eventos de ciclo de vida
-@app.on_event("startup")
-async def startup_event():
-    # Aqui podemos iniciar conexões (e.g. Notion, Redis)
-    print("Starting up services...")
+# Tratador genérico para exceções não capturadas
+@app.exception_handler(Exception)
+async def generic_exception_handler(request: Request, exc: Exception):
+    return JSONResponse(status_code=500, content={"detail": str(exc)})
 
-@app.on_event("shutdown")
-async def shutdown_event():
-    # Fechar conexões ou limpar recursos
-    print("Shutting down services...")
-
-# Health check
-@app.get("/health", tags=["Health"], summary="Verifica status da API")
-async def health_check():
+# Saúde da aplicação
+@app.get("/health", summary="Health Check", tags=["Debug"])
+async def health():
     return {"status": "ok"}
 
-# Registrar routers com versionamento
-app.include_router(
-    btc_emas.router,
-    prefix="/api/v1/btc-emas",
-    tags=["EMAs"],
-    dependencies=[Depends(get_settings)]
-)
-app.include_router(
-    btc_cycles.router,
-    prefix="/api/v1/btc-cycles",
-    tags=["Cycles"],
-    dependencies=[Depends(get_settings)]
-)
-
-@app.get("/config", tags=["Debug"], summary="Retorna configurações ativas")
+# Debug de configurações
+@app.get("/config", summary="Configurações Ativas", tags=["Debug"])
 async def get_config(settings: Settings = Depends(get_settings)):
     return {
         "app_name": settings.APP_NAME,
@@ -54,5 +35,12 @@ async def get_config(settings: Settings = Depends(get_settings)):
         "cache_ttl": settings.CACHE_EXPIRATION_SECONDS
     }
 
-
-# Executar uvicorn via CLI: uvicorn app.main:app --host ... --port ...
+# Inclui routers de APIs
+app.include_router(
+    btc_emas.router,
+    prefix="/api/v1/btc-emas",
+)
+app.include_router(
+    btc_cycles.router,
+    prefix="/api/v1/btc-cycles",
+)
