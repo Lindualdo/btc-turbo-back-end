@@ -1,6 +1,6 @@
 # app/routers/btc_emas.py
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from tvDatafeed import TvDatafeed
 from app.config import get_settings, Settings
 from pydantic import BaseModel
@@ -15,7 +15,7 @@ class EMAData(BaseModel):
     current_volume: float
     ema: float
 
-# ✅ Credenciais fixas temporárias (para debug)
+# ✅ Credenciais fixas temporárias (apenas para teste!)
 TV_USERNAME = "lindualdosantos"
 TV_PASSWORD = "Portugal@2024.TV"
 
@@ -64,13 +64,9 @@ async def _calculate_emas(settings: Settings) -> List[EMAData]:
     return results
 
 @router.get("", response_model=List[EMAData], summary="Calcula EMAs (v1)", tags=["EMAs"])
-async def get_emas_v1(
-    settings: Settings = Depends(get_settings),
-) -> List[EMAData]:
+async def get_emas_v1(settings: Settings = Depends(get_settings)) -> List[EMAData]:
     return await _calculate_emas(settings)
 
 @router.get("/v2", response_model=List[EMAData], summary="Calcula EMAs (v2)", tags=["EMAs"])
-async def get_emas_v2(
-    settings: Settings = Depends(get_settings),
-) -> List[EMAData]:
+async def get_emas_v2(settings: Settings = Depends(get_settings)) -> List[EMAData]:
     return await _calculate_emas(settings)
