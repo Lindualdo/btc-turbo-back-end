@@ -4,7 +4,7 @@ from app.services.tv_session_manager import get_tv_instance
 
 from fastapi import APIRouter, HTTPException, Depends
 from tvDatafeed import TvDatafeed, Interval
-from app.utils.ema_utils import calcular_emas, analisar_timeframe
+from app.utils.ema_utils import calcular_emas, analisar_timeframe, consolidar_scores
 from app.config import Settings, get_settings
 import pandas as pd
 
@@ -27,6 +27,7 @@ def get_all_emas(settings: Settings = Depends(get_settings)):
         result = {"emas": {}}
         price = None
         volume = None
+        analises = {}
 
         for key, interval in interval_map.items():
             try:
@@ -45,8 +46,8 @@ def get_all_emas(settings: Settings = Depends(get_settings)):
                 precos_timeframe = latest["close"]
                 emas_timeframe = {f"EMA_{p}": latest.get(f"EMA_{p}", None) for p in emas_list}
 
-                # Análise técnica por timeframe
                 analise = analisar_timeframe(precos_timeframe, emas_timeframe)
+                analises[key] = analise
 
                 result["emas"][key] = {
                     **emas_timeframe,
@@ -58,6 +59,7 @@ def get_all_emas(settings: Settings = Depends(get_settings)):
 
         result["preco_atual"] = price
         result["volume_atual"] = volume
+        result["consolidado"] = consolidar_scores(analises)
 
         return result
 
