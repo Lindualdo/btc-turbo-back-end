@@ -1,4 +1,4 @@
-# app/routers/btc_emas.py
+# app/routers/analise_tecnica_emas.py
 
 from app.services.tv_session_manager import get_tv_instance
 
@@ -20,7 +20,7 @@ interval_map = {
 
 emas_list = [17, 34, 144, 305, 610]
 
-@router.get("/btc-emas", summary="Calcula EMAs do BTC", tags=["EMAs"])
+@router.get("/analise-tecnica-emas", summary="Análise Técnica BTC — EMAs", tags=["Análise Técnica"])
 def get_all_emas(settings: Settings = Depends(get_settings)):
     try:
         tv = get_tv_instance()  # ✅ correto
