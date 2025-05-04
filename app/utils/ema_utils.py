@@ -62,3 +62,37 @@ def analisar_timeframe(preco, emas):
         "classificacao": classificacao,
         "observacao": observacao
     }
+
+def consolidar_scores(scores_dict):
+    pesos = {
+        "1w": 0.5,
+        "1d": 0.25,
+        "4h": 0.15,
+        "1h": 0.10
+    }
+    total = 0.0
+    racional_partes = []
+
+    for tf, peso in pesos.items():
+        score = scores_dict.get(tf, {}).get("score", 0)
+        total += score * peso
+        racional_partes.append(f"(score_{tf}: {score} * {peso})")
+
+    score_final = round(total, 1)
+
+    if score_final >= 8.1:
+        classificacao = "🟢 Tendência de Alta Forte"
+    elif score_final >= 6.1:
+        classificacao = "🔵 Correção dentro da Tendência"
+    elif score_final >= 4.1:
+        classificacao = "🟡 Tendência Comprometida"
+    elif score_final >= 2.1:
+        classificacao = "🟠 Reversão Iniciada"
+    else:
+        classificacao = "🔴 Final da Tendência de Alta"
+
+    return {
+        "score": score_final,
+        "classificacao": classificacao,
+        "racional": "score_final = " + " + ".join(racional_partes)
+    }
