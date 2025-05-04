@@ -1,5 +1,5 @@
 
-# 🧠 BTC Turbo API — v1.1.0
+# 🧠 BTC Turbo API — v1.0.3
 
 API em FastAPI para cálculo de indicadores técnicos e análise de ciclos do BTC, com deploy Dockerizado via Railway.
 User e Senha do Tradinview via Variáveis da Railway
@@ -15,7 +15,7 @@ GET /api/v1/btc-cycles/btc-cycles
 
 ### 📊 EMAs BTC
 ```
-GET /api/v1/btc-emas/btc-emas
+GET /api/v1/btc-emas/analise-tecnica-emas
 ```
 
 ### 🩺 Health Check
@@ -104,10 +104,9 @@ GET /openapi.json
 
 ---
 
-## 🧊 Versão atual - 04/04/25 - 18:30
+## 🧊 Versão 04/04/25 - 18:30 - v1.0.2
 
 ```text
-Versão congelada: v1.0.2
 
 ### 🔧 Melhorias implementadas
 
@@ -121,3 +120,37 @@ Versão congelada: v1.0.2
   - Ao falhar o login, o erro real da biblioteca `tvDatafeed` é mostrado
 - ✅ **Validação de credenciais configurada**
   - Caso `username` ou `password` estejam ausentes, impede fallback silencioso
+
+
+## 🧊 Versão atual - 04/04/25 - 21:00 - 1.0.3 
+
+
+## ✅ Funcionalidades Implementadas
+
+### 🔹 Endpoint `/api/v1/analise-tecnica-emas`
+
+- Análise técnica individual por timeframe com:
+  - Score de 0 a 10
+  - Classificação textual (🟢, 🔵, 🟡, 🟠, 🔴)
+  - Observação explicativa (quando houver desalinhamento ou fraqueza)
+- Cálculo **consolidado multitemporal** com pesos:
+  - `1w` (50%), `1d` (25%), `4h` (15%), `1h` (10%)
+  - Saída com score, classificação final e racional da fórmula
+- Endpoint renomeado de `/btc-emas` para `/analise-tecnica-emas`
+
+---
+
+## 🔜 Próximos Endpoints v1 (a desenvolver)
+
+### 📊 Análise Técnica
+- `/api/v1/analise-tecnica-ifrs`
+
+### 🧠 Fundamentos On-Chain
+- `/api/v1/analise-fundamentos`
+
+### ⚠️ Indicadores de Risco
+- `/api/v1/analise-riscos`
+
+---
+
+**Versão estável e pronta para integração com n8n e Notion.**
