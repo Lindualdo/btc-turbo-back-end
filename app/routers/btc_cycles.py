@@ -54,8 +54,7 @@ def consolidar_macro_ambiente(juros: dict, expansao: dict) -> dict:
 
 @router.get("", summary="Análise de ciclos do BTC", tags=["Ciclos"])
 def btc_cycles(settings: Settings = Depends(get_settings)):
-    tv = TvDatafeed(username=settings.TV_USERNAME, password=settings.TV_PASSWORD)
-
+    tv = get_tv_instance()  # ✅ correto
     ema = get_btc_vs_200d_ema(tv)
     realized = get_realized_price_vs_price_atual(tv)
     puell = get_puell_multiple_from_notion()

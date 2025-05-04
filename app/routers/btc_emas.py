@@ -21,7 +21,7 @@ emas_list = [17, 34, 144, 305, 610]
 @router.get("/btc-emas", summary="Calcula EMAs do BTC", tags=["EMAs"])
 def get_all_emas(settings: Settings = Depends(get_settings)):
     try:
-        tv = TvDatafeed(username=settings.TV_USERNAME, password=settings.TV_PASSWORD)
+        tv = get_tv_instance()  # ✅ correto
         result = {"emas": {}}
         price = None
         volume = None
