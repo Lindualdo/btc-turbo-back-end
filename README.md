@@ -58,6 +58,19 @@ GET /openapi.json
 └── README.md
 ```
 
+## ⚙️ Infraestrutura & Deploy
+
+### 🚀 Railway (produção)
+
+- Ambiente provisionado com Docker + FastAPI
+- Deploy contínuo via GitHub (branch `main`)
+- Variáveis de ambiente configuradas manualmente:
+  - `TV_USERNAME`
+  - `TV_PASSWORD`
+  - `NOTION_TOKEN`
+  - `NOTION_DATABASE_ID_EMA`
+  - `NOTION_DATABASE_ID_MACRO`
+
 ---
 
 ## 📦 Dependências principais
@@ -91,10 +104,20 @@ GET /openapi.json
 
 ---
 
-## 🧊 Versão atual
+## 🧊 Versão atual - 04/04/25 - 18:30
 
 ```text
-Versão congelada: v1.1.0
-Status: ✅ Estável
-Base: Refatoração pós-v1.0.0 com EMAs e Ciclos funcionando
-```
+Versão congelada: v1.0.2
+
+### 🔧 Melhorias implementadas
+
+- ✅ **Gerenciamento de sessão persistente**
+  - Reutilização de instância ativa (`tv`) sem recriar login desnecessariamente
+  - Logs indicam o reaproveitamento da sessão de forma clara
+- ✅ **Logs de execução aprimorados**
+  - Feedback visual detalhado no console: emoji + descrição clara do fluxo
+  - Logs incluem ID da sessão, status de login, e origem dos dados
+- ✅ **Mensagens de erro mais informativas**
+  - Ao falhar o login, o erro real da biblioteca `tvDatafeed` é mostrado
+- ✅ **Validação de credenciais configurada**
+  - Caso `username` ou `password` estejam ausentes, impede fallback silencioso
