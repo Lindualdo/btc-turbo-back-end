@@ -43,5 +43,5 @@ async def get_config(settings: Settings = Depends(get_settings)):
     }
 
 # Registro dos routers com prefixo versionado
-app.include_router(analise_tecnica_emas.router, prefix="/api/v1/analise-tecnica-emas")
+app.include_router(analise_tecnica_emas.router, prefix="/api/v1")
 app.include_router(btc_cycles.router, prefix="/api/v1/btc-cycles")
