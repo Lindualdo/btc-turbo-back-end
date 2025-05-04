@@ -1,8 +1,10 @@
+# app/routers/btc_emas.py
+
 from app.services.tv_session_manager import get_tv_instance
 
 from fastapi import APIRouter, HTTPException, Depends
 from tvDatafeed import TvDatafeed, Interval
-from app.utils.ema_utils import calcular_emas
+from app.utils.ema_utils import calcular_emas, analisar_timeframe
 from app.config import Settings, get_settings
 import pandas as pd
 
@@ -40,7 +42,16 @@ def get_all_emas(settings: Settings = Depends(get_settings)):
                     price = latest["close"]
                     volume = latest.get("volume", 0.0)
 
-                result["emas"][key] = {f"EMA_{p}": latest.get(f"EMA_{p}", None) for p in emas_list}
+                precos_timeframe = latest["close"]
+                emas_timeframe = {f"EMA_{p}": latest.get(f"EMA_{p}", None) for p in emas_list}
+
+                # Análise técnica por timeframe
+                analise = analisar_timeframe(precos_timeframe, emas_timeframe)
+
+                result["emas"][key] = {
+                    **emas_timeframe,
+                    "analise": analise
+                }
 
             except Exception as e:
                 raise HTTPException(status_code=502, detail=f"Erro ao processar intervalo {key}: {str(e)}")
