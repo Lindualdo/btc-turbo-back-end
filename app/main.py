@@ -1,9 +1,13 @@
 # app/main.py
 
+import logging
 from fastapi import FastAPI, Request, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from app.config import get_settings, Settings
 from app.routers import btc_emas, btc_cycles
+
+# ✅ Ativar logs nível INFO
+logging.basicConfig(level=logging.INFO)
 
 # Carrega configurações globais
 settings: Settings = get_settings()
