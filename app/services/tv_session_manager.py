@@ -1,36 +1,31 @@
-# app/services/tv_session_manager.py
-
+import logging
 from tvDatafeed import TvDatafeed
 from app.config import get_settings
-import logging
 
-_tv_instance = None
+_tv_instance = None  # cache global da sessão
 
 def get_tv_instance():
     global _tv_instance
-    settings = get_settings()
 
     if _tv_instance is not None:
         logging.info(f"♻️ Reutilizando sessão TV (ID={id(_tv_instance)})")
         return _tv_instance
 
+    settings = get_settings()
+    username = settings.TV_USERNAME
+    password = settings.TV_PASSWORD
+
     try:
         logging.info("🚀 Iniciando nova sessão com TradingView...")
-        logging.info(f"🔐 Username carregado: {settings.TV_USERNAME} | Senha definida? {'✔️' if settings.TV_PASSWORD else '❌'}")
+        logging.info(f"🔐 Username carregado: {username} | Senha definida? {'✅' if password else '❌'}")
 
-        _tv_instance = TvDatafeed(
-            username=settings.TV_USERNAME,
-            password=settings.TV_PASSWORD
-        )
+        _tv_instance = TvDatafeed(username=username, password=password)
 
-        # Testar se está logado de verdade
-        user_info = _tv_instance.get_user_settings()
-        if user_info:
-            logging.info(f"✅ Login bem-sucedido! Sessão ativa como: {user_info}")
+        # Validação de login (sem usar métodos inexistentes)
+        if _tv_instance.username:
+            logging.info(f"✅ Sessão TradingView autenticada como: {_tv_instance.username}")
         else:
-            logging.warning("⚠️ Sessão criada, mas sem dados do usuário. Pode estar em modo nologin.")
-
-        logging.info(f"✅ Sessão TradingView iniciada (ID={id(_tv_instance)})")
+            logging.warning("⚠️ Sessão anônima (nologin) ativa — dados limitados")
 
     except Exception as e:
         logging.error(f"❌ Falha ao conectar ou logar no TradingView: {e}")
