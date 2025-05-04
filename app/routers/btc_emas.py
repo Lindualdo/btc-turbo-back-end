@@ -1,3 +1,4 @@
+from app.services.tv_session_manager import get_tv_instance
 
 from fastapi import APIRouter, HTTPException, Depends
 from tvDatafeed import TvDatafeed, Interval
@@ -20,7 +21,7 @@ emas_list = [17, 34, 144, 305, 610]
 @router.get("/btc-emas", summary="Calcula EMAs do BTC", tags=["EMAs"])
 def get_all_emas(settings: Settings = Depends(get_settings)):
     try:
-        tv = get_tv_instance()
+        tv = TvDatafeed(username=settings.TV_USERNAME, password=settings.TV_PASSWORD)
         result = {"emas": {}}
         price = None
         volume = None

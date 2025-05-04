@@ -1,3 +1,4 @@
+from app.services.tv_session_manager import get_tv_instance
 # app/dependencies.py
 from fastapi import Depends
 from tvDatafeed import TvDatafeed
@@ -10,7 +11,10 @@ def get_tv_client(settings: Settings = Depends(get_settings)) -> TvDatafeed:
     """
     Dependency that provides an authenticated TvDatafeed client using credentials from settings.
     """
-    return get_tv_instance()
+    return TvDatafeed(
+        username=settings.TV_USERNAME,
+        password=settings.TV_PASSWORD
+    )
 
 
 def get_notion_client(settings: Settings = Depends(get_settings)) -> NotionClient:
