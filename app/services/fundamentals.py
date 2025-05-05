@@ -6,9 +6,10 @@ import pandas as pd
 from datetime import datetime
 from requests.exceptions import HTTPError
 
-COINGECKO_URL    = "https://api.coingecko.com/api/v3/coins/bitcoin"
-COINMETRICS_BASE = "https://community-api.coinmetrics.io/v4/timeseries/asset-metrics"
-FRED_M2_CSV      = "https://fred.stlouisfed.org/graph/fredgraph.csv?id=M2SL"
+COINGECKO_URL       = "https://api.coingecko.com/api/v3/coins/bitcoin"
+COINGECKO_HISTORY   = "https://api.coingecko.com/api/v3/coins/bitcoin/history"
+COINMETRICS_BASE    = "https://community-api.coinmetrics.io/v4/timeseries/asset-metrics"
+FRED_M2_CSV         = "https://fred.stlouisfed.org/graph/fredgraph.csv?id=M2SL"
 
 
 def _fetch_coingecko() -> dict:
@@ -18,10 +19,10 @@ def _fetch_coingecko() -> dict:
         params={"localization": "false", "tickers": "false", "market_data": "true"}
     )
     resp.raise_for_status()
-    data = resp.json()["market_data"]
+    data = resp.json().get("market_data", {})
     return {
-        "price": data["current_price"]["usd"],
-        "supply": data["circulating_supply"]
+        "price": data.get("current_price", {}).get("usd", 0),
+        "supply": data.get("circulating_supply", 0)
     }
 
 
@@ -54,36 +55,35 @@ def _fetch_coinmetrics(metric: str) -> float:
 
 def get_model_variance() -> dict:
     """
-    Calcula Model Variance como log-natural da razão entre preço real e preço de modelo S2F.
-    Fórmula do modelo: P_model = exp(1.84) * (S2F)^3.36
-    Model Variance = ln(P_real / P_model), variando tipicamente entre -2 e 2.
-    Retorna indicador, valor, pontuacao_bruta, peso e pontuacao_ponderada.
+    Calcula Model Variance como ln(P_real / P_model), variando entre -2 e 2.
+    P_model = exp(b) * (S2F) ^ a, com a=3.36, b=1.84.
     """
-    # parâmetros PlanB originais
     a, b = 3.36, 1.84
 
-    # busca dados atuais
-    data_now    = _fetch_coingecko()
-    price_real  = data_now["price"]
-    supply_now  = data_now["supply"]
+    # dados atuais
+    data_now   = _fetch_coingecko()
+    price_real = data_now.get("price", 0)
+    supply_now = data_now.get("supply", 0)
 
-    # busca supply de 1 ano atrás para flow anual
+    # historical supply de um ano atrás
     one_year_ago = (datetime.utcnow() - pd.DateOffset(days=365)).strftime("%d-%m-%Y")
     resp_hist = requests.get(
-        COINGECKO_URL.replace("/coins/", "/coins/") + f"/history?date={one_year_ago}&localization=false"
+        COINGECKO_HISTORY,
+        params={"date": one_year_ago, "localization": "false"}
     )
     resp_hist.raise_for_status()
-    supply_prev = resp_hist.json()["market_data"]["circulating_supply"]
+    market_data = resp_hist.json().get("market_data", {})
+    supply_prev = market_data.get("circulating_supply", 0)
 
     # calcula S2F
-    flow = supply_now - supply_prev
+    flow = supply_now - supply_prev if supply_now and supply_prev else 0
     s2f  = supply_now / flow if flow > 0 else 0
 
-    # modelo S2F: P_model = e^b * S2F^a
-    price_model = math.exp(b) * (s2f ** a)
+    # preço de modelo
+    price_model = math.exp(b) * (s2f ** a) if s2f > 0 else 0
 
-    # Model Variance como ln(P_real / P_model)
-    variance = math.log(price_real / price_model) if price_model > 0 else 0
+    # variância como ln(P_real / P_model)
+    variance = math.log(price_real / price_model) if price_model > 0 and price_real > 0 else 0
 
     # pontuação bruta
     if variance > 1:
