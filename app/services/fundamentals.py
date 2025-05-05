@@ -46,10 +46,10 @@ def _fetch_coinmetrics(metric: str) -> float:
                     return float(v)
                 except Exception:
                     continue
-        raise KeyError("value")
+        raise ValueError(f"No numeric field found for metric '{metric}'")
     if isinstance(last, (list, tuple)) and len(last) >= 2:
         return float(last[1])
-    raise KeyError("value")
+    raise ValueError(f"Unexpected data format for metric '{metric}'")
 
 
 def get_model_variance() -> dict:
@@ -58,22 +58,14 @@ def get_model_variance() -> dict:
     Usa parâmetros PlanB originais: slope=3.36, intercept=+0.799 (log10).
     Retorna dicionário com indicador, valor (%), pontuacao_bruta, peso e pontuacao_ponderada.
     """
-    # parâmetros públicos PlanB: log10(P) = a·log10(S2F) + b
     a, b = 3.36, 0.799
-
     data   = _fetch_coingecko()
     supply = data["supply"]
     price  = data["price"]
-
-    # estimativa de flow anual (pós-halving): 3.125 BTC/bloco * 6 blocos/h * 24h * 365 ≈ 164250 BTC/ano
-    flow = 3.125 * 6 * 24 * 365
-    s2f  = supply / flow
-
-    # calcula preço de modelo e variância em %
-    price_s2f = 10 ** (a * math.log10(s2f) + b)
+    flow   = 3.125 * 6 * 24 * 365
+    s2f    = supply / flow
+    price_s2f    = 10 ** (a * math.log10(s2f) + b)
     variance_pct = (price - price_s2f) / price_s2f * 100
-
-    # pontuação bruta: thresholds baseados em %
     if variance_pct > 100:
         score = 3
     elif variance_pct > 0:
@@ -82,7 +74,6 @@ def get_model_variance() -> dict:
         score = 1
     else:
         score = 0
-
     peso = 0.35
     return {
         "indicador": "Model Variance (S2F)",
@@ -124,16 +115,17 @@ def get_mvrv_zscore() -> dict:
 
 
 def get_vdd_multiple() -> dict:
+    """
+    Tenta buscar VDD Multiple; se não suportado (400) ou nenhum dado, faz fallback.
+    Retorna indicador, valor, pontuacao_bruta, peso e pontuacao_ponderada.
+    """
     peso = 0.20
     try:
         value = _fetch_coinmetrics("VDD.Multiple")
         indicador = "VDD Multiple"
-    except HTTPError as err:
-        if err.response.status_code == 400:
-            value = 0
-            indicador = "VDD Multiple (Unavailable)"
-        else:
-            raise
+    except (HTTPError, ValueError):
+        value = 0
+        indicador = "VDD Multiple (Unavailable)"
     if value > 3:
         score = 3
     elif value > 1:
