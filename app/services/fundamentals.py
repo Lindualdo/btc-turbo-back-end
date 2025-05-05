@@ -25,24 +25,58 @@ def _fetch_coingecko() -> dict:
     }
 
 
+def _fetch_coinmetrics(metric: str) -> float:
+    """Busca último valor diário do metric na Community API do CoinMetrics, com parsing robusto."""
+    params = {"assets": "btc", "metrics": metric, "frequency": "1d"}
+    resp = requests.get(COINMETRICS_BASE, params=params)
+    resp.raise_for_status()
+    payload = resp.json()
+    data = payload.get("data", [])
+    if not data:
+        raise ValueError(f"No data returned for metric '{metric}'")
+    last = data[-1]
+    # se for dict, tenta várias chaves
+    if isinstance(last, dict):
+        # caso padrão
+        if "value" in last:
+            return float(last["value"])
+        # se for lista em 'values'
+        if isinstance(last.get("values"), (list, tuple)) and len(last["values"]) >= 2:
+            return float(last["values"][1])
+        # tenta encontrar primeiro campo numérico não-meta
+        for k, v in last.items():
+            if k not in {"time", "asset", "metric", "frequency"}:
+                try:
+                    return float(v)
+                except Exception:
+                    continue
+        raise KeyError("value")
+    # se lista/tupla simples
+    if isinstance(last, (list, tuple)) and len(last) >= 2:
+        return float(last[1])
+    raise KeyError("value")
+
+
 def get_model_variance() -> dict:
     """
-    Calcula Stock-to-Flow e Model Variance usando fórmula S2F de PlanB.
-    Retorna:
-      indicador, valor (variance), pontuacao_bruta, peso, pontuacao_ponderada.
+    Calcula Stock-to-Flow e Model Variance usando a fórmula S2F de PlanB.
+    Retorna dicionário com indicador, valor, pontuacao_bruta, peso e pontuacao_ponderada.
     """
-    a, b = 3.36, -1.8  # parâmetros públicos PlanB
+    # parâmetros públicos PlanB: log10(P) = a·log10(S2F) + b
+    a, b = 3.36, -1.8
 
     data   = _fetch_coingecko()
     supply = data["supply"]
     price  = data["price"]
 
+    # estimativa de flow anual em BTC
     flow = 6.25 * 6 * 24 * 365
     s2f  = supply / flow
 
     price_s2f = 10 ** (a * math.log10(s2f) + b)
     variance  = (price - price_s2f) / price_s2f
 
+    # pontuação bruta
     if variance > 1:
         score = 3
     elif variance > 0:
@@ -62,41 +96,27 @@ def get_model_variance() -> dict:
     }
 
 
-def _fetch_coinmetrics(metric: str) -> float:
-    """Busca último valor diário do metric na Community API do CoinMetrics."""
-    params = {
-        "assets": "btc",
-        "metrics": metric,
-        "frequency": "1d",
-    }
-    resp = requests.get(COINMETRICS_BASE, params=params)
-    resp.raise_for_status()
-    data = resp.json().get("data", [])
-    return float(data[-1]["value"])
-
-
 def get_mvrv_zscore() -> dict:
     """
     Tenta buscar MVRV Z-Score; se 400, computa MVRV Ratio como fallback
-    usando Market Cap / Realized Cap.
-    Retorna dict com indicador, valor, pontuacao_bruta, peso e pontuacao_ponderada.
+    utilizando Market Cap e Realized Cap.
     """
     peso = 0.25
     try:
-        # primeira tentativa: Z-Score direto
+        # tentativa inicial: Z-Score
         value = _fetch_coinmetrics("MVRV.ZSCORE")
         indicador = "MVRV Z-Score"
     except HTTPError as err:
         if err.response.status_code == 400:
-            # computa ratio = CapMrktCurUSD / CapRealUSD
+            # fallback: calcula ratio = market cap / realized cap
             mkt_cap      = _fetch_coinmetrics("CapMrktCurUSD")
             realized_cap = _fetch_coinmetrics("CapRealUSD")
-            value = mkt_cap / realized_cap if realized_cap else 0
+            value = (mkt_cap / realized_cap) if realized_cap else 0
             indicador = "MVRV Ratio (Computed)"
         else:
             raise
 
-    # cálculo da pontuação bruta (mesmos thresholds)
+    # pontuação bruta
     if value > 3:
         score = 3
     elif value > 1:
@@ -116,7 +136,10 @@ def get_mvrv_zscore() -> dict:
 
 
 def get_vdd_multiple() -> dict:
-    """Retorna VDD Multiple com pontuação e peso."""
+    """
+    Retorna VDD Multiple com pontuação bruta e ponderada.
+    """
+    peso = 0.20
     value = _fetch_coinmetrics("VDD.Multiple")
 
     if value > 3:
@@ -128,7 +151,6 @@ def get_vdd_multiple() -> dict:
     else:
         score = 0
 
-    peso = 0.20
     return {
         "indicador": "VDD Multiple",
         "valor": value,
@@ -156,6 +178,7 @@ def get_m2_global_expansion() -> dict:
 
     pct6m = (latest_val / prev_val - 1) * 100
 
+    # pontuação bruta
     if pct6m > 10:
         score = 3
     elif pct6m > 5:
