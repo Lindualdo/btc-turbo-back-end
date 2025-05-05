@@ -4,6 +4,7 @@ import math
 import requests
 import pandas as pd
 from datetime import datetime
+from requests.exceptions import HTTPError
 
 COINGECKO_URL    = "https://api.coingecko.com/api/v3/coins/bitcoin"
 COINMETRICS_BASE = "https://community-api.coinmetrics.io/v4/timeseries/asset-metrics"
@@ -75,8 +76,26 @@ def _fetch_coinmetrics(metric: str) -> float:
 
 
 def get_mvrv_zscore() -> dict:
-    value = _fetch_coinmetrics("MVRV.ZSCORE")
+    """
+    Tenta buscar MVRV Z-Score; se não suportado (400), faz fallback para MVRV.Ratio.
+    Retorna dict com indicador, valor, pontuacao_bruta, peso e pontuacao_ponderada.
+    """
+    peso = 0.25
 
+    try:
+        # primeira tentativa: Z-Score
+        value = _fetch_coinmetrics("MVRV.ZSCORE")
+        indicador = "MVRV Z-Score"
+    except HTTPError as err:
+        if err.response.status_code == 400:
+            # fallback para ratio
+            value = _fetch_coinmetrics("MVRV.Ratio")
+            indicador = "MVRV Ratio (Fallback)"
+        else:
+            # re-lança outros erros de HTTP
+            raise
+
+    # cálculo da pontuação bruta
     if value > 3:
         score = 3
     elif value > 1:
@@ -86,9 +105,8 @@ def get_mvrv_zscore() -> dict:
     else:
         score = 0
 
-    peso = 0.25
     return {
-        "indicador": "MVRV Z-Score",
+        "indicador": indicador,
         "valor": value,
         "pontuacao_bruta": score,
         "peso": peso,
@@ -97,6 +115,7 @@ def get_mvrv_zscore() -> dict:
 
 
 def get_vdd_multiple() -> dict:
+    """Retorna VDD Multiple com pontuação e peso."""
     value = _fetch_coinmetrics("VDD.Multiple")
 
     if value > 3:
