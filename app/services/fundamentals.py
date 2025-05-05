@@ -77,25 +77,26 @@ def _fetch_coinmetrics(metric: str) -> float:
 
 def get_mvrv_zscore() -> dict:
     """
-    Tenta buscar MVRV Z-Score; se não suportado (400), faz fallback para MVRV.Ratio.
+    Tenta buscar MVRV Z-Score; se 400, computa MVRV Ratio como fallback
+    usando Market Cap / Realized Cap.
     Retorna dict com indicador, valor, pontuacao_bruta, peso e pontuacao_ponderada.
     """
     peso = 0.25
-
     try:
-        # primeira tentativa: Z-Score
+        # primeira tentativa: Z-Score direto
         value = _fetch_coinmetrics("MVRV.ZSCORE")
         indicador = "MVRV Z-Score"
     except HTTPError as err:
         if err.response.status_code == 400:
-            # fallback para ratio
-            value = _fetch_coinmetrics("MVRV.Ratio")
-            indicador = "MVRV Ratio (Fallback)"
+            # computa ratio = CapMrktCurUSD / CapRealUSD
+            mkt_cap      = _fetch_coinmetrics("CapMrktCurUSD")
+            realized_cap = _fetch_coinmetrics("CapRealUSD")
+            value = mkt_cap / realized_cap if realized_cap else 0
+            indicador = "MVRV Ratio (Computed)"
         else:
-            # re-lança outros erros de HTTP
             raise
 
-    # cálculo da pontuação bruta
+    # cálculo da pontuação bruta (mesmos thresholds)
     if value > 3:
         score = 3
     elif value > 1:
