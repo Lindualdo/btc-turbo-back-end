@@ -35,15 +35,11 @@ def _fetch_coinmetrics(metric: str) -> float:
     if not data:
         raise ValueError(f"No data returned for metric '{metric}'")
     last = data[-1]
-    # se for dict, tenta várias chaves
     if isinstance(last, dict):
-        # caso padrão
         if "value" in last:
             return float(last["value"])
-        # se for lista em 'values'
         if isinstance(last.get("values"), (list, tuple)) and len(last["values"]) >= 2:
             return float(last["values"][1])
-        # tenta encontrar primeiro campo numérico não-meta
         for k, v in last.items():
             if k not in {"time", "asset", "metric", "frequency"}:
                 try:
@@ -51,7 +47,6 @@ def _fetch_coinmetrics(metric: str) -> float:
                 except Exception:
                     continue
         raise KeyError("value")
-    # se lista/tupla simples
     if isinstance(last, (list, tuple)) and len(last) >= 2:
         return float(last[1])
     raise KeyError("value")
@@ -62,21 +57,14 @@ def get_model_variance() -> dict:
     Calcula Stock-to-Flow e Model Variance usando a fórmula S2F de PlanB.
     Retorna dicionário com indicador, valor, pontuacao_bruta, peso e pontuacao_ponderada.
     """
-    # parâmetros públicos PlanB: log10(P) = a·log10(S2F) + b
-    a, b = 3.36, -1.8
-
+    a, b = 3.36, -1.8  # parâmetros públicos PlanB
     data   = _fetch_coingecko()
     supply = data["supply"]
     price  = data["price"]
-
-    # estimativa de flow anual em BTC
     flow = 6.25 * 6 * 24 * 365
     s2f  = supply / flow
-
     price_s2f = 10 ** (a * math.log10(s2f) + b)
     variance  = (price - price_s2f) / price_s2f
-
-    # pontuação bruta
     if variance > 1:
         score = 3
     elif variance > 0:
@@ -85,7 +73,6 @@ def get_model_variance() -> dict:
         score = 1
     else:
         score = 0
-
     peso = 0.35
     return {
         "indicador": "Model Variance (S2F)",
@@ -98,25 +85,20 @@ def get_model_variance() -> dict:
 
 def get_mvrv_zscore() -> dict:
     """
-    Tenta buscar MVRV Z-Score; se 400, computa MVRV Ratio como fallback
-    utilizando Market Cap e Realized Cap.
+    Tenta buscar MVRV Z-Score; se 400, computa MVRV Ratio como fallback usando Market Cap e Realized Cap.
     """
     peso = 0.25
     try:
-        # tentativa inicial: Z-Score
         value = _fetch_coinmetrics("MVRV.ZSCORE")
         indicador = "MVRV Z-Score"
     except HTTPError as err:
         if err.response.status_code == 400:
-            # fallback: calcula ratio = market cap / realized cap
             mkt_cap      = _fetch_coinmetrics("CapMrktCurUSD")
             realized_cap = _fetch_coinmetrics("CapRealUSD")
             value = (mkt_cap / realized_cap) if realized_cap else 0
             indicador = "MVRV Ratio (Computed)"
         else:
             raise
-
-    # pontuação bruta
     if value > 3:
         score = 3
     elif value > 1:
@@ -125,7 +107,6 @@ def get_mvrv_zscore() -> dict:
         score = 1
     else:
         score = 0
-
     return {
         "indicador": indicador,
         "valor": value,
@@ -137,11 +118,18 @@ def get_mvrv_zscore() -> dict:
 
 def get_vdd_multiple() -> dict:
     """
-    Retorna VDD Multiple com pontuação bruta e ponderada.
+    Tenta buscar VDD Multiple; se 400, realiza fallback definindo valor como zero.
     """
     peso = 0.20
-    value = _fetch_coinmetrics("VDD.Multiple")
-
+    try:
+        value = _fetch_coinmetrics("VDD.Multiple")
+        indicador = "VDD Multiple"
+    except HTTPError as err:
+        if err.response.status_code == 400:
+            value = 0
+            indicador = "VDD Multiple (Unavailable)"
+        else:
+            raise
     if value > 3:
         score = 3
     elif value > 1:
@@ -150,9 +138,8 @@ def get_vdd_multiple() -> dict:
         score = 1
     else:
         score = 0
-
     return {
-        "indicador": "VDD Multiple",
+        "indicador": indicador,
         "valor": value,
         "pontuacao_bruta": score,
         "peso": peso,
@@ -168,17 +155,12 @@ def get_m2_global_expansion() -> dict:
     df["DATE"] = pd.to_datetime(df.iloc[:, 0])
     val_col = df.columns[1]
     series  = df.set_index("DATE")[val_col]
-
     latest_date = series.index.max()
     latest_val  = series.loc[latest_date]
-
     six_months_ago = latest_date - pd.DateOffset(months=6)
     prev_slice     = series[series.index <= six_months_ago]
     prev_val       = prev_slice.iloc[-1] if not prev_slice.empty else series.iloc[0]
-
     pct6m = (latest_val / prev_val - 1) * 100
-
-    # pontuação bruta
     if pct6m > 10:
         score = 3
     elif pct6m > 5:
@@ -187,7 +169,6 @@ def get_m2_global_expansion() -> dict:
         score = 1
     else:
         score = 0
-
     peso = 0.20
     return {
         "indicador": "Expansão Global M2 (6m)",
@@ -210,7 +191,6 @@ def get_all_fundamentals() -> dict:
     ]
     total_ponderado = sum(item["pontuacao_ponderada"] for item in lista)
     score_final     = round(total_ponderado * 10, 2)
-
     return {
         "tabela": lista,
         "consolidado": score_final
