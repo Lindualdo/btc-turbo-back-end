@@ -1,19 +1,13 @@
 # app/services/fundamentals.py
 
-import os
 import math
 import requests
 import pandas as pd
 from datetime import datetime
-from app.config import get_settings
 
-# load API key from settings
-settings = get_settings()
-COINMETRICS_KEY = settings.COINMETRICS_API_KEY
-
-COINGECKO_URL     = "https://api.coingecko.com/api/v3/coins/bitcoin"
-COINMETRICS_BASE  = "https://api.coinmetrics.io/v4/timeseries/asset-metrics"
-FRED_M2_CSV       = "https://fred.stlouisfed.org/graph/fredgraph.csv?id=M2SL"
+COINGECKO_URL    = "https://api.coingecko.com/api/v3/coins/bitcoin"
+COINMETRICS_BASE = "https://community-api.coinmetrics.io/v4/timeseries/asset-metrics"
+FRED_M2_CSV      = "https://fred.stlouisfed.org/graph/fredgraph.csv?id=M2SL"
 
 
 def _fetch_coingecko() -> dict:
@@ -36,21 +30,18 @@ def get_model_variance() -> dict:
     Retorna:
       indicador, valor (variance), pontuacao_bruta, peso, pontuacao_ponderada.
     """
-    # parâmetros públicos PlanB: log10(P) = a·log10(S2F) + b
-    a, b = 3.36, -1.8
+    a, b = 3.36, -1.8  # parâmetros públicos PlanB
 
-    data = _fetch_coingecko()
+    data   = _fetch_coingecko()
     supply = data["supply"]
     price  = data["price"]
 
-    # estimativa de flow anual em BTC
     flow = 6.25 * 6 * 24 * 365
     s2f  = supply / flow
 
     price_s2f = 10 ** (a * math.log10(s2f) + b)
     variance  = (price - price_s2f) / price_s2f
 
-    # pontuação bruta
     if variance > 1:
         score = 3
     elif variance > 0:
@@ -71,23 +62,19 @@ def get_model_variance() -> dict:
 
 
 def _fetch_coinmetrics(metric: str) -> float:
-    """Busca último valor diário do metric em CoinMetrics."""
-    resp = requests.get(
-        COINMETRICS_BASE,
-        params={
-            "assets": "btc",
-            "metrics": metric,
-            "frequency": "1d",
-            "api_key": COINMETRICS_KEY
-        }
-    )
+    """Busca último valor diário do metric na Community API do CoinMetrics."""
+    params = {
+        "assets": "btc",
+        "metrics": metric,
+        "frequency": "1d",
+    }
+    resp = requests.get(COINMETRICS_BASE, params=params)
     resp.raise_for_status()
     data = resp.json().get("data", [])
     return float(data[-1]["value"])
 
 
 def get_mvrv_zscore() -> dict:
-    """Retorna MVRV Z-Score com pontuação e peso."""
     value = _fetch_coinmetrics("MVRV.ZSCORE")
 
     if value > 3:
@@ -110,7 +97,6 @@ def get_mvrv_zscore() -> dict:
 
 
 def get_vdd_multiple() -> dict:
-    """Retorna VDD Multiple com pontuação e peso."""
     value = _fetch_coinmetrics("VDD.Multiple")
 
     if value > 3:
@@ -135,13 +121,11 @@ def get_vdd_multiple() -> dict:
 def get_m2_global_expansion() -> dict:
     """
     Lê CSV do FRED (M2 EUA) e calcula expansão percentual nos últimos 6 meses.
-    Retorna indicador, valor (%), pontuacao_bruta, peso, pontuacao_ponderada.
     """
-    # carrega datas e valores
     df = pd.read_csv(FRED_M2_CSV)
     df["DATE"] = pd.to_datetime(df.iloc[:, 0])
-    val_col    = df.columns[1]
-    series     = df.set_index("DATE")[val_col]
+    val_col = df.columns[1]
+    series  = df.set_index("DATE")[val_col]
 
     latest_date = series.index.max()
     latest_val  = series.loc[latest_date]
@@ -152,7 +136,6 @@ def get_m2_global_expansion() -> dict:
 
     pct6m = (latest_val / prev_val - 1) * 100
 
-    # pontuação bruta
     if pct6m > 10:
         score = 3
     elif pct6m > 5:
