@@ -4,7 +4,7 @@ import logging
 from fastapi import FastAPI, Request, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from app.config import get_settings, Settings
-from app.routers import analise_tecnica_emas, btc_cycles
+from app.routers import analise_ciclos, analise_tecnica_emas
 
 # ✅ Ativar logs nível INFO
 logging.basicConfig(level=logging.INFO)
@@ -44,4 +44,4 @@ async def get_config(settings: Settings = Depends(get_settings)):
 
 # Registro dos routers com prefixo versionado
 app.include_router(analise_tecnica_emas.router, prefix="/api/v1")
-app.include_router(btc_cycles.router, prefix="/api/v1/btc-cycles")
+app.include_router(analise_ciclos.router, prefix="/api/v1")
