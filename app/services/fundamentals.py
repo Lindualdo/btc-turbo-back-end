@@ -54,39 +54,46 @@ def _fetch_coinmetrics(metric: str) -> float:
 
 def get_model_variance() -> dict:
     """
-    Calcula Stock-to-Flow e Model Variance usando a fórmula S2F de PlanB.
-    Retorna dicionário com indicador, valor, pontuacao_bruta, peso e pontuacao_ponderada.
+    Calcula Stock-to-Flow (S2F) e Model Variance em porcentagem.
+    Usa parâmetros PlanB originais: slope=3.36, intercept=+0.799 (log10).
+    Retorna dicionário com indicador, valor (%), pontuacao_bruta, peso e pontuacao_ponderada.
     """
-    a, b = 3.36, -1.8  # parâmetros públicos PlanB
+    # parâmetros públicos PlanB: log10(P) = a·log10(S2F) + b
+    a, b = 3.36, 0.799
+
     data   = _fetch_coingecko()
     supply = data["supply"]
     price  = data["price"]
-    flow = 6.25 * 6 * 24 * 365
+
+    # estimativa de flow anual (pós-halving): 3.125 BTC/bloco * 6 blocos/h * 24h * 365 ≈ 164250 BTC/ano
+    flow = 3.125 * 6 * 24 * 365
     s2f  = supply / flow
+
+    # calcula preço de modelo e variância em %
     price_s2f = 10 ** (a * math.log10(s2f) + b)
-    variance  = (price - price_s2f) / price_s2f
-    if variance > 1:
+    variance_pct = (price - price_s2f) / price_s2f * 100
+
+    # pontuação bruta: thresholds baseados em %
+    if variance_pct > 100:
         score = 3
-    elif variance > 0:
+    elif variance_pct > 0:
         score = 2
-    elif variance > -1:
+    elif variance_pct > -100:
         score = 1
     else:
         score = 0
+
     peso = 0.35
     return {
         "indicador": "Model Variance (S2F)",
-        "valor": variance,
+        "valor": round(variance_pct, 2),
         "pontuacao_bruta": score,
         "peso": peso,
-        "pontuacao_ponderada": (score / 3) * peso
+        "pontuacao_ponderada": round((score / 3) * peso, 4)
     }
 
 
 def get_mvrv_zscore() -> dict:
-    """
-    Tenta buscar MVRV Z-Score; se 400, computa MVRV Ratio como fallback usando Market Cap e Realized Cap.
-    """
     peso = 0.25
     try:
         value = _fetch_coinmetrics("MVRV.ZSCORE")
@@ -109,17 +116,14 @@ def get_mvrv_zscore() -> dict:
         score = 0
     return {
         "indicador": indicador,
-        "valor": value,
+        "valor": round(value, 2),
         "pontuacao_bruta": score,
         "peso": peso,
-        "pontuacao_ponderada": (score / 3) * peso
+        "pontuacao_ponderada": round((score / 3) * peso, 4)
     }
 
 
 def get_vdd_multiple() -> dict:
-    """
-    Tenta buscar VDD Multiple; se 400, realiza fallback definindo valor como zero.
-    """
     peso = 0.20
     try:
         value = _fetch_coinmetrics("VDD.Multiple")
@@ -140,17 +144,14 @@ def get_vdd_multiple() -> dict:
         score = 0
     return {
         "indicador": indicador,
-        "valor": value,
+        "valor": round(value, 2),
         "pontuacao_bruta": score,
         "peso": peso,
-        "pontuacao_ponderada": (score / 3) * peso
+        "pontuacao_ponderada": round((score / 3) * peso, 4)
     }
 
 
 def get_m2_global_expansion() -> dict:
-    """
-    Lê CSV do FRED (M2 EUA) e calcula expansão percentual nos últimos 6 meses.
-    """
     df = pd.read_csv(FRED_M2_CSV)
     df["DATE"] = pd.to_datetime(df.iloc[:, 0])
     val_col = df.columns[1]
@@ -172,17 +173,14 @@ def get_m2_global_expansion() -> dict:
     peso = 0.20
     return {
         "indicador": "Expansão Global M2 (6m)",
-        "valor": pct6m,
+        "valor": round(pct6m, 2),
         "pontuacao_bruta": score,
         "peso": peso,
-        "pontuacao_ponderada": (score / 3) * peso
+        "pontuacao_ponderada": round((score / 3) * peso, 4)
     }
 
 
 def get_all_fundamentals() -> dict:
-    """
-    Gera tabela com todos os indicadores e calcula pontuação final 0–10.
-    """
     lista = [
         get_model_variance(),
         get_mvrv_zscore(),
