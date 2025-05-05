@@ -4,7 +4,7 @@ import logging
 from fastapi import FastAPI, Request, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from app.config import get_settings, Settings
-from app.routers import analise_ciclos, analise_tecnica_emas
+from app.routers import analise_ciclos, analise_tecnica_emas, analise_fundamentos
 
 # ✅ Ativar logs nível INFO
 logging.basicConfig(level=logging.INFO)

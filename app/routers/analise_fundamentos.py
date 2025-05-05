@@ -1,4 +1,3 @@
-# app/routers/analise_tecnica_emas.py
 # app/routers/analise_fundamentos.py
 
 from fastapi import APIRouter, HTTPException, Depends
