@@ -54,30 +54,51 @@ def _fetch_coinmetrics(metric: str) -> float:
 
 def get_model_variance() -> dict:
     """
-    Calcula Stock-to-Flow (S2F) e Model Variance em porcentagem.
-    Usa parâmetros PlanB originais: slope=3.36, intercept=+0.799 (log10).
-    Retorna dicionário com indicador, valor (%), pontuacao_bruta, peso e pontuacao_ponderada.
+    Calcula Model Variance como log-natural da razão entre preço real e preço de modelo S2F.
+    Fórmula do modelo: P_model = exp(1.84) * (S2F)^3.36
+    Model Variance = ln(P_real / P_model), variando tipicamente entre -2 e 2.
+    Retorna indicador, valor, pontuacao_bruta, peso e pontuacao_ponderada.
     """
-    a, b = 3.36, 0.799
-    data   = _fetch_coingecko()
-    supply = data["supply"]
-    price  = data["price"]
-    flow   = 3.125 * 6 * 24 * 365
-    s2f    = supply / flow
-    price_s2f    = 10 ** (a * math.log10(s2f) + b)
-    variance_pct = (price - price_s2f) / price_s2f * 100
-    if variance_pct > 100:
+    # parâmetros PlanB originais
+    a, b = 3.36, 1.84
+
+    # busca dados atuais
+    data_now    = _fetch_coingecko()
+    price_real  = data_now["price"]
+    supply_now  = data_now["supply"]
+
+    # busca supply de 1 ano atrás para flow anual
+    one_year_ago = (datetime.utcnow() - pd.DateOffset(days=365)).strftime("%d-%m-%Y")
+    resp_hist = requests.get(
+        COINGECKO_URL.replace("/coins/", "/coins/") + f"/history?date={one_year_ago}&localization=false"
+    )
+    resp_hist.raise_for_status()
+    supply_prev = resp_hist.json()["market_data"]["circulating_supply"]
+
+    # calcula S2F
+    flow = supply_now - supply_prev
+    s2f  = supply_now / flow if flow > 0 else 0
+
+    # modelo S2F: P_model = e^b * S2F^a
+    price_model = math.exp(b) * (s2f ** a)
+
+    # Model Variance como ln(P_real / P_model)
+    variance = math.log(price_real / price_model) if price_model > 0 else 0
+
+    # pontuação bruta
+    if variance > 1:
         score = 3
-    elif variance_pct > 0:
+    elif variance > 0:
         score = 2
-    elif variance_pct > -100:
+    elif variance > -1:
         score = 1
     else:
         score = 0
+
     peso = 0.35
     return {
         "indicador": "Model Variance (S2F)",
-        "valor": round(variance_pct, 2),
+        "valor": round(variance, 2),
         "pontuacao_bruta": score,
         "peso": peso,
         "pontuacao_ponderada": round((score / 3) * peso, 4)
@@ -89,14 +110,11 @@ def get_mvrv_zscore() -> dict:
     try:
         value = _fetch_coinmetrics("MVRV.ZSCORE")
         indicador = "MVRV Z-Score"
-    except HTTPError as err:
-        if err.response.status_code == 400:
-            mkt_cap      = _fetch_coinmetrics("CapMrktCurUSD")
-            realized_cap = _fetch_coinmetrics("CapRealUSD")
-            value = (mkt_cap / realized_cap) if realized_cap else 0
-            indicador = "MVRV Ratio (Computed)"
-        else:
-            raise
+    except (HTTPError, ValueError):
+        mkt_cap      = _fetch_coinmetrics("CapMrktCurUSD")
+        realized_cap = _fetch_coinmetrics("CapRealUSD")
+        value = (mkt_cap / realized_cap) if realized_cap else 0
+        indicador = "MVRV Ratio (Computed)"
     if value > 3:
         score = 3
     elif value > 1:
@@ -115,10 +133,6 @@ def get_mvrv_zscore() -> dict:
 
 
 def get_vdd_multiple() -> dict:
-    """
-    Tenta buscar VDD Multiple; se não suportado (400) ou nenhum dado, faz fallback.
-    Retorna indicador, valor, pontuacao_bruta, peso e pontuacao_ponderada.
-    """
     peso = 0.20
     try:
         value = _fetch_coinmetrics("VDD.Multiple")
