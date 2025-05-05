@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     NOTION_DATABASE_ID_EMA: str = Field(..., env="NOTION_DATABASE_ID_EMA")
     NOTION_DATABASE_ID_MACRO: str = Field(..., env="NOTION_DATABASE_ID_MACRO")
 
+    # CoinMetrics API (free community tier)
+    COINMETRICS_API_KEY: str = Field(..., env="COINMETRICS_API_KEY")
+
     # Indicator weights and thresholds
     WEIGHT_EMA_200: float = Field(0.25, description="Peso para BTC vs 200D EMA")
     WEIGHT_REALIZED_PRICE: float = Field(0.25, description="Peso para Realized Price")
