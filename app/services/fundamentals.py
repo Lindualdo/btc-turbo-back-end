@@ -3,77 +3,87 @@
 import math
 import requests
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime
 from requests.exceptions import HTTPError
 
-COINGECKO_URL     = "https://api.coingecko.com/api/v3/coins/bitcoin"
-COINMETRICS_BASE  = "https://community-api.coinmetrics.io/v4/timeseries/asset-metrics"
-FRED_M2_CSV       = "https://fred.stlouisfed.org/graph/fredgraph.csv?id=M2SL"
+COINGECKO_URL       = "https://api.coingecko.com/api/v3/coins/bitcoin"
+COINGECKO_HISTORY   = "https://api.coingecko.com/api/v3/coins/bitcoin/history"
+COINMETRICS_BASE    = "https://community-api.coinmetrics.io/v4/timeseries/asset-metrics"
+FRED_M2_CSV         = "https://fred.stlouisfed.org/graph/fredgraph.csv?id=M2SL"
 
 
 def _fetch_coingecko() -> dict:
-    """Retorna dict com 'price' (USD) do BTC."""
+    """Retorna dict com 'price' (USD) e 'supply' circulante do BTC."""
     resp = requests.get(
         COINGECKO_URL,
         params={"localization": "false", "tickers": "false", "market_data": "true"}
     )
     resp.raise_for_status()
-    md = resp.json().get("market_data", {})
-    return {"price": md.get("current_price", {}).get("usd", 0)}
-
-
-def _fetch_coinmetrics_timeseries(metric: str, days: int = 365) -> (float, float):
-    """
-    Busca série de 'metric' nos últimos 'days' dias via CoinMetrics Community API.
-    Retorna tupla (valor_antigo, valor_atual).
-    """
-    now = datetime.utcnow()
-    start = (now - timedelta(days=days)).isoformat()
-    end   = now.isoformat()
-    params = {
-        "assets": "btc",
-        "metrics": metric,
-        "frequency": "1d",
-        "start_time": start,
-        "end_time": end
+    data = resp.json().get("market_data", {})
+    return {
+        "price": data.get("current_price", {}).get("usd", 0),
+        "supply": data.get("circulating_supply", 0)
     }
+
+
+def _fetch_coinmetrics(metric: str) -> float:
+    """Busca último valor diário do metric na Community API do CoinMetrics, com parsing robusto."""
+    params = {"assets": "btc", "metrics": metric, "frequency": "1d"}
     resp = requests.get(COINMETRICS_BASE, params=params)
     resp.raise_for_status()
-    data = resp.json().get("data", [])
-    if len(data) >= 2:
-        prev = float(data[0].get("value", 0))
-        curr = float(data[-1].get("value", 0))
-        return prev, curr
-    raise ValueError(f"Not enough data for metric '{metric}'")
+    payload = resp.json()
+    data = payload.get("data", [])
+    if not data:
+        raise ValueError(f"No data returned for metric '{metric}'")
+    last = data[-1]
+    if isinstance(last, dict):
+        if "value" in last:
+            return float(last["value"])
+        if isinstance(last.get("values"), (list, tuple)) and len(last["values"]) >= 2:
+            return float(last["values"][1])
+        for k, v in last.items():
+            if k not in {"time", "asset", "metric", "frequency"}:
+                try:
+                    return float(v)
+                except Exception:
+                    continue
+        raise ValueError(f"No numeric field found for metric '{metric}'")
+    if isinstance(last, (list, tuple)) and len(last) >= 2:
+        return float(last[1])
+    raise ValueError(f"Unexpected data format for metric '{metric}'")
 
 
 def get_model_variance() -> dict:
     """
-    Calcula Model Variance como ln(P_real / P_model), variando tipicamente entre -2 e 2.
-    Usa S2F dinâmico via CoinMetrics para supply atual e há 1 ano.
+    Calcula Model Variance como ln(P_real / P_model), variando entre -2 e 2.
+    P_model = exp(b) * (S2F) ^ a, com a=3.36, b=1.84.
     """
     a, b = 3.36, 1.84
 
-    # busca preço atual
-    price_real = _fetch_coingecko().get("price", 0)
+    # dados atuais
+    data_now   = _fetch_coingecko()
+    price_real = data_now.get("price", 0)
+    supply_now = data_now.get("supply", 0)
 
-    # busca supply atual e de 1 ano atrás
-    try:
-        supply_prev, supply_now = _fetch_coinmetrics_timeseries("SplyCur", days=365)
-    except Exception:
-        # fallback gecko supply + estático
-        supply_now = requests.get(COINGECKO_URL, params={"localization":"false","tickers":"false","market_data":"true"}).json().get("market_data",{}).get("circulating_supply",0)
-        supply_prev = max(supply_now - 164250, 0)
+    # historical supply de um ano atrás
+    one_year_ago = (datetime.utcnow() - pd.DateOffset(days=365)).strftime("%d-%m-%Y")
+    resp_hist = requests.get(
+        COINGECKO_HISTORY,
+        params={"date": one_year_ago, "localization": "false"}
+    )
+    resp_hist.raise_for_status()
+    market_data = resp_hist.json().get("market_data", {})
+    supply_prev = market_data.get("circulating_supply", 0)
 
-    # calcula flow e S2F
-    flow = max(supply_now - supply_prev, 0)
+    # calcula S2F
+    flow = supply_now - supply_prev if supply_now and supply_prev else 0
     s2f  = supply_now / flow if flow > 0 else 0
 
-    # calcula preço de modelo S2F
+    # preço de modelo
     price_model = math.exp(b) * (s2f ** a) if s2f > 0 else 0
 
-    # variância log-natural
-    variance = math.log(price_real / price_model) if price_real > 0 and price_model > 0 else 0
+    # variância como ln(P_real / P_model)
+    variance = math.log(price_real / price_model) if price_model > 0 and price_real > 0 else 0
 
     # pontuação bruta
     if variance > 1:
@@ -98,13 +108,12 @@ def get_model_variance() -> dict:
 def get_mvrv_zscore() -> dict:
     peso = 0.25
     try:
-        prev, curr = _fetch_coinmetrics_timeseries("MVRV.ZSCORE", days=1)
-        value = curr
+        value = _fetch_coinmetrics("MVRV.ZSCORE")
         indicador = "MVRV Z-Score"
-    except Exception:
-        mk, rc = _fetch_coinmetrics_timeseries("CapMrktCurUSD", days=1)
-        rl, pr = _fetch_coinmetrics_timeseries("CapRealUSD", days=1)
-        value = rk / pr if pr else 0
+    except (HTTPError, ValueError):
+        mkt_cap      = _fetch_coinmetrics("CapMrktCurUSD")
+        realized_cap = _fetch_coinmetrics("CapRealUSD")
+        value = (mkt_cap / realized_cap) if realized_cap else 0
         indicador = "MVRV Ratio (Computed)"
     if value > 3:
         score = 3
@@ -114,16 +123,21 @@ def get_mvrv_zscore() -> dict:
         score = 1
     else:
         score = 0
-    return {"indicador": indicador, "valor": round(value, 2), "pontuacao_bruta": score, "peso": peso, "pontuacao_ponderada": round((score / 3) * peso, 4)}
+    return {
+        "indicador": indicador,
+        "valor": round(value, 2),
+        "pontuacao_bruta": score,
+        "peso": peso,
+        "pontuacao_ponderada": round((score / 3) * peso, 4)
+    }
 
 
 def get_vdd_multiple() -> dict:
     peso = 0.20
     try:
-        prev, curr = _fetch_coinmetrics_timeseries("VDD.Multiple", days=1)
-        value = curr
+        value = _fetch_coinmetrics("VDD.Multiple")
         indicador = "VDD Multiple"
-    except Exception:
+    except (HTTPError, ValueError):
         value = 0
         indicador = "VDD Multiple (Unavailable)"
     if value > 3:
@@ -134,18 +148,26 @@ def get_vdd_multiple() -> dict:
         score = 1
     else:
         score = 0
-    return {"indicador": indicador, "valor": round(value, 2), "pontuacao_bruta": score, "peso": peso, "pontuacao_ponderada": round((score / 3) * peso, 4)}
+    return {
+        "indicador": indicador,
+        "valor": round(value, 2),
+        "pontuacao_bruta": score,
+        "peso": peso,
+        "pontuacao_ponderada": round((score / 3) * peso, 4)
+    }
 
 
 def get_m2_global_expansion() -> dict:
     df = pd.read_csv(FRED_M2_CSV)
     df["DATE"] = pd.to_datetime(df.iloc[:, 0])
-    series = df.set_index("DATE")[df.columns[1]]
-    latest = series.iloc[-1]
-    cutoff = series.index.max() - pd.DateOffset(months=6)
-    prev = series[series.index <= cutoff]
-    prev_val = prev.iloc[-1] if not prev.empty else series.iloc[0]
-    pct6m = (latest / prev_val - 1) * 100
+    val_col = df.columns[1]
+    series  = df.set_index("DATE")[val_col]
+    latest_date = series.index.max()
+    latest_val  = series.loc[latest_date]
+    six_months_ago = latest_date - pd.DateOffset(months=6)
+    prev_slice     = series[series.index <= six_months_ago]
+    prev_val       = prev_slice.iloc[-1] if not prev_slice.empty else series.iloc[0]
+    pct6m = (latest_val / prev_val - 1) * 100
     if pct6m > 10:
         score = 3
     elif pct6m > 5:
@@ -155,11 +177,25 @@ def get_m2_global_expansion() -> dict:
     else:
         score = 0
     peso = 0.20
-    return {"indicador": "Expansão Global M2 (6m)", "valor": round(pct6m, 2), "pontuacao_bruta": score, "peso": peso, "pontuacao_ponderada": round((score / 3) * peso, 4)}
+    return {
+        "indicador": "Expansão Global M2 (6m)",
+        "valor": round(pct6m, 2),
+        "pontuacao_bruta": score,
+        "peso": peso,
+        "pontuacao_ponderada": round((score / 3) * peso, 4)
+    }
 
 
 def get_all_fundamentals() -> dict:
-    lista = [get_model_variance(), get_mvrv_zscore(), get_vdd_multiple(), get_m2_global_expansion()]
-    total = sum(item["pontuacao_ponderada"] for item in lista)
-    score_final = round(total * 10, 2)
-    return {"tabela": lista, "consolidado": score_final}
+    lista = [
+        get_model_variance(),
+        get_mvrv_zscore(),
+        get_vdd_multiple(),
+        get_m2_global_expansion()
+    ]
+    total_ponderado = sum(item["pontuacao_ponderada"] for item in lista)
+    score_final     = round(total_ponderado * 10, 2)
+    return {
+        "tabela": lista,
+        "consolidado": score_final
+    }
