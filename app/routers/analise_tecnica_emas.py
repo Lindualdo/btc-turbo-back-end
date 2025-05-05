@@ -20,7 +20,9 @@ interval_map = {
 
 emas_list = [17, 34, 144, 305, 610]
 
-@router.get("/analise-tecnica-emas", summary="Análise Técnica BTC — EMAs", tags=["Análise Técnica"])
+@router.get("/analise-tecnica-emas", 
+            summary="Análise Técnica BTC — EMAs", 
+            tags=["Análise Técnica"])
 def get_all_emas(settings: Settings = Depends(get_settings)):
     try:
         tv = get_tv_instance()  # ✅ correto

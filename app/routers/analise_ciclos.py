@@ -52,7 +52,9 @@ def consolidar_macro_ambiente(juros: dict, expansao: dict) -> dict:
             "erro": str(e)
         }
 
-@router.get("/analise-ciclos", summary="Análise de ciclos do BTC", tags=["Ciclos"])
+@router.get("/analise-ciclos", 
+            summary="Análise de ciclos do BTC", 
+            tags=["Ciclos"])
 def btc_cycles(settings: Settings = Depends(get_settings)):
     tv = get_tv_instance()  # ✅ correto
     ema = get_btc_vs_200d_ema(tv)
