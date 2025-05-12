@@ -1,6 +1,7 @@
 import os
 from tvDatafeed import TvDatafeed, Interval
 import requests
+from app.config import get_settings
 
 def get_btc_vs_200d_ema(tv: TvDatafeed):
     try:
@@ -87,8 +88,9 @@ def get_realized_price_vs_price_atual(tv: TvDatafeed):
 def get_puell_multiple():
     try:
         from notion_client import Client
-        NOTION_TOKEN = os.getenv("NOTION_TOKEN")
-        DATABASE_ID = os.getenv("NOTION_DATABASE_ID_MACRO")
+        settings = get_settings()
+        NOTION_TOKEN = settings.NOTION_TOKEN
+        DATABASE_ID = settings.NOTION_DATABASE_ID_MACRO
         notion = Client(auth=NOTION_TOKEN)
 
         response = notion.databases.query(database_id=DATABASE_ID)
@@ -179,8 +181,9 @@ def get_juros_tendencia(tv: TvDatafeed):
 def get_expansao_global_from_notion():
     try:
         from notion_client import Client
-        NOTION_TOKEN = os.getenv("NOTION_TOKEN")
-        DATABASE_ID = os.getenv("NOTION_DATABASE_ID_MACRO")
+        settings = get_settings()
+        NOTION_TOKEN = settings.NOTION_TOKEN
+        DATABASE_ID = settings.NOTION_DATABASE_ID_MACRO
         notion = Client(auth=NOTION_TOKEN)
 
         response = notion.databases.query(database_id=DATABASE_ID)
