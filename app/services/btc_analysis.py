@@ -90,7 +90,7 @@ def get_puell_multiple():
         from notion_client import Client
         settings = get_settings()
         NOTION_TOKEN = settings.NOTION_TOKEN
-        DATABASE_ID = settings.NOTION_DATABASE_ID_MACRO
+        DATABASE_ID = settings.NOTION_DATABASE_ID_MACRO.strip().replace('"', '')  # Removendo aspas extras
         notion = Client(auth=NOTION_TOKEN)
 
         response = notion.databases.query(database_id=DATABASE_ID)
@@ -183,7 +183,7 @@ def get_expansao_global_from_notion():
         from notion_client import Client
         settings = get_settings()
         NOTION_TOKEN = settings.NOTION_TOKEN
-        DATABASE_ID = settings.NOTION_DATABASE_ID_MACRO
+        DATABASE_ID = settings.NOTION_DATABASE_ID_MACRO.strip().replace('"', '')  # Removendo aspas extras
         notion = Client(auth=NOTION_TOKEN)
 
         response = notion.databases.query(database_id=DATABASE_ID)
