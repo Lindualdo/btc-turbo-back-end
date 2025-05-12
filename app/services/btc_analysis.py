@@ -2,6 +2,7 @@ import os
 from tvDatafeed import TvDatafeed, Interval
 import requests
 from app.config import get_settings
+import logging
 
 def get_btc_vs_200d_ema(tv: TvDatafeed):
     try:
@@ -90,7 +91,16 @@ def get_puell_multiple():
         from notion_client import Client
         settings = get_settings()
         NOTION_TOKEN = settings.NOTION_TOKEN
-        DATABASE_ID = settings.NOTION_DATABASE_ID_MACRO.strip().replace('"', '')  # Removendo aspas extras
+        
+        # Obter o ID do banco de dados e verificar se é válido
+        DATABASE_ID = settings.NOTION_DATABASE_ID_MACRO.strip().replace('"', '')
+        
+        # Verificar se o DATABASE_ID não está vazio
+        if not DATABASE_ID:
+            logging.error("DATABASE_ID está vazio. Verifique a variável NOTION_DATABASE_ID_MACRO no arquivo .env")
+            raise ValueError("DATABASE_ID não pode ser vazio.")
+            
+        logging.info(f"Puell Multiple - DATABASE_ID: {DATABASE_ID}")
         notion = Client(auth=NOTION_TOKEN)
 
         response = notion.databases.query(database_id=DATABASE_ID)
@@ -183,7 +193,16 @@ def get_expansao_global_from_notion():
         from notion_client import Client
         settings = get_settings()
         NOTION_TOKEN = settings.NOTION_TOKEN
-        DATABASE_ID = settings.NOTION_DATABASE_ID_MACRO.strip().replace('"', '')  # Removendo aspas extras
+        
+        # Obter o ID do banco de dados e verificar se é válido
+        DATABASE_ID = settings.NOTION_DATABASE_ID_MACRO.strip().replace('"', '')
+        
+        # Verificar se o DATABASE_ID não está vazio
+        if not DATABASE_ID:
+            logging.error("DATABASE_ID está vazio. Verifique a variável NOTION_DATABASE_ID_MACRO no arquivo .env")
+            raise ValueError("DATABASE_ID não pode ser vazio.")
+            
+        logging.info(f"Expansão Global - DATABASE_ID: {DATABASE_ID}")
         notion = Client(auth=NOTION_TOKEN)
 
         response = notion.databases.query(database_id=DATABASE_ID)
