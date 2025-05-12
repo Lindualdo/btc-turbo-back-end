@@ -42,7 +42,6 @@ def get_btc_vs_200d_ema(tv: TvDatafeed):
             "pontuacao_bruta": 0,
             "peso": 0.25,
             "pontuacao_ponderada": 0.0,
-            "confiabilidade": "erro",
             "erro": str(e)
         }
 
@@ -89,7 +88,7 @@ def get_puell_multiple():
     try:
         from notion_client import Client
         NOTION_TOKEN = os.getenv("NOTION_TOKEN")
-        DATABASE_ID = os.getenv("NOTION_DATABASE_ID")
+        DATABASE_ID = os.getenv("NOTION_DATABASE_ID_MACRO")
         notion = Client(auth=NOTION_TOKEN)
 
         response = notion.databases.query(database_id=DATABASE_ID)
@@ -181,7 +180,7 @@ def get_expansao_global_from_notion():
     try:
         from notion_client import Client
         NOTION_TOKEN = os.getenv("NOTION_TOKEN")
-        DATABASE_ID = os.getenv("NOTION_DATABASE_ID")
+        DATABASE_ID = os.getenv("NOTION_DATABASE_ID_MACRO")
         notion = Client(auth=NOTION_TOKEN)
 
         response = notion.databases.query(database_id=DATABASE_ID)
