@@ -127,11 +127,12 @@ def get_mvrv_zscore() -> dict:
             if nome == "mvrv":
                 valor = float(props["valor"]["number"])
 
-                if valor > 3:
-                    score = 3
-                elif valor > 1:
+                # Atualizando as regras conforme documentação
+                if valor < 2.0:
                     score = 2
-                elif valor > -1:
+                elif valor < 2.5:
+                    score = 1.5
+                elif valor < 5.0:
                     score = 1
                 else:
                     score = 0
@@ -183,11 +184,10 @@ def get_vdd_multiple() -> dict:
             if nome == "vdd_multiple":
                 valor = float(props["valor"]["number"])
 
-                if valor > 3:
-                    score = 3
-                elif valor > 1:
+                # Atualizando as regras conforme documentação
+                if valor < 1.0:
                     score = 2
-                elif valor > 0.5:
+                elif valor < 2.0:
                     score = 1
                 else:
                     score = 0
@@ -239,13 +239,14 @@ def get_global_m2_expansion() -> dict:
             if nome == "m2_global":
                 valor = float(props["valor"]["number"])
 
-                if valor > 10:
-                    score = 3
-                elif valor > 5:
+                # Atualizando as regras conforme documentação
+                if valor > 3:
                     score = 2
-                elif valor > 0:
+                elif valor > 1:
                     score = 1
-                else:
+                elif valor >= -1 and valor <= 1:
+                    score = 0
+                else:  # Valor < -1
                     score = 0
 
                 return {
