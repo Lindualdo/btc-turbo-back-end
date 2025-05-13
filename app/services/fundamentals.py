@@ -159,27 +159,58 @@ def get_mvrv_zscore() -> dict:
 def get_vdd_multiple() -> dict:
     peso = 0.20
     try:
-        _, curr = _fetch_coinmetrics_timeseries("VDD.Multiple", days=1)
-        value = curr
-    except:
-        value = 0
+        from notion_client import Client
+        from app.config import get_settings
+        settings = get_settings()
+        NOTION_TOKEN = settings.NOTION_TOKEN
+        
+        # Obter o ID do banco de dados e verificar se é válido
+        DATABASE_ID = settings.NOTION_DATABASE_ID_MACRO.strip().replace('"', '')
+        
+        # Verificar se o DATABASE_ID não está vazio
+        if not DATABASE_ID:
+            logging.error("DATABASE_ID está vazio. Verifique a variável NOTION_DATABASE_ID_MACRO no arquivo .env")
+            raise ValueError("DATABASE_ID não pode ser vazio.")
+            
+        logging.info(f"VDD Multiple - DATABASE_ID: {DATABASE_ID}")
+        notion = Client(auth=NOTION_TOKEN)
 
-    if value > 3:
-        score = 3
-    elif value > 1:
-        score = 2
-    elif value > 0.5:
-        score = 1
-    else:
-        score = 0
+        response = notion.databases.query(database_id=DATABASE_ID)
+        for row in response["results"]:
+            props = row["properties"]
+            nome = props["indicador"]["title"][0]["plain_text"].strip().lower()
+            if nome == "vdd_multiple":
+                valor = float(props["valor"]["number"])
 
-    return {
-        "indicador": "VDD Multiple",
-        "valor": round(value, 2),
-        "pontuacao_bruta": score,
-        "peso": peso,
-        "pontuacao_ponderada": round((score / 3) * peso, 4)
-    }
+                if valor > 3:
+                    score = 3
+                elif valor > 1:
+                    score = 2
+                elif valor > 0.5:
+                    score = 1
+                else:
+                    score = 0
+
+                return {
+                    "indicador": "VDD Multiple",
+                    "fonte": "Notion API",
+                    "valor": round(valor, 2),
+                    "pontuacao_bruta": score,
+                    "peso": peso,
+                    "pontuacao_ponderada": round((score / 3) * peso, 4)
+                }
+
+        raise ValueError("Indicador 'vdd_multiple' não encontrado.")
+    except Exception as e:
+        return {
+            "indicador": "VDD Multiple",
+            "fonte": "Notion API",
+            "valor": "erro",
+            "pontuacao_bruta": 0,
+            "peso": peso,
+            "pontuacao_ponderada": 0.0,
+            "erro": str(e)
+        }
 
 def get_m2_global_expansion() -> dict:
     peso = 0.20
