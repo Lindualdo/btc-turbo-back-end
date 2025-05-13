@@ -103,32 +103,58 @@ def get_model_variance() -> dict:
 def get_mvrv_zscore() -> dict:
     peso = 0.25
     try:
-        _, curr = _fetch_coinmetrics_timeseries("MVRV.ZSCORE", days=1)
-        value = curr
-    except Exception:
-        try:
-            mk, _ = _fetch_coinmetrics_timeseries("CapMrktCurUSD", days=1)
-            rl, _ = _fetch_coinmetrics_timeseries("CapRealUSD", days=1)
-            value = mk / rl if rl else 0
-        except:
-            value = 0
+        from notion_client import Client
+        from app.config import get_settings
+        settings = get_settings()
+        NOTION_TOKEN = settings.NOTION_TOKEN
+        
+        # Obter o ID do banco de dados e verificar se é válido
+        DATABASE_ID = settings.NOTION_DATABASE_ID_MACRO.strip().replace('"', '')
+        
+        # Verificar se o DATABASE_ID não está vazio
+        if not DATABASE_ID:
+            logging.error("DATABASE_ID está vazio. Verifique a variável NOTION_DATABASE_ID_MACRO no arquivo .env")
+            raise ValueError("DATABASE_ID não pode ser vazio.")
+            
+        logging.info(f"MVRV Z-Score - DATABASE_ID: {DATABASE_ID}")
+        notion = Client(auth=NOTION_TOKEN)
 
-    if value > 3:
-        score = 3
-    elif value > 1:
-        score = 2
-    elif value > -1:
-        score = 1
-    else:
-        score = 0
+        response = notion.databases.query(database_id=DATABASE_ID)
+        for row in response["results"]:
+            props = row["properties"]
+            nome = props["indicador"]["title"][0]["plain_text"].strip().lower()
+            if nome == "mvrv":
+                valor = float(props["valor"]["number"])
 
-    return {
-        "indicador": "MVRV Z-Score",
-        "valor": round(value, 2),
-        "pontuacao_bruta": score,
-        "peso": peso,
-        "pontuacao_ponderada": round((score / 3) * peso, 4)
-    }
+                if valor > 3:
+                    score = 3
+                elif valor > 1:
+                    score = 2
+                elif valor > -1:
+                    score = 1
+                else:
+                    score = 0
+
+                return {
+                    "indicador": "MVRV Z-Score",
+                    "fonte": "Notion API",
+                    "valor": round(valor, 2),
+                    "pontuacao_bruta": score,
+                    "peso": peso,
+                    "pontuacao_ponderada": round((score / 3) * peso, 4)
+                }
+
+        raise ValueError("Indicador 'mvrv' não encontrado.")
+    except Exception as e:
+        return {
+            "indicador": "MVRV Z-Score",
+            "fonte": "Notion API",
+            "valor": "erro",
+            "pontuacao_bruta": 0,
+            "peso": peso,
+            "pontuacao_ponderada": 0.0,
+            "erro": str(e)
+        }
 
 def get_vdd_multiple() -> dict:
     peso = 0.20
