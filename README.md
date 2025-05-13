@@ -1,4 +1,4 @@
-# 🚀 BTC Turbo API – v1.0.5
+# 🚀 BTC Turbo API – v1.0.6
 
 API em FastAPI para cálculo de indicadores técnicos e análise de ciclos do BTC, com deploy Dockerizado via Railway.
 
@@ -147,7 +147,7 @@ app.include_router(analise_tecnica_emas.router, prefix="/api/v1")
 
 ---
 
-## 🗓️ Versão atual 1.0.5 - 13/05/2025 08:00
+## 🗓️ Versão atual 1.0.6 - 13/05/2025 10:00
 
 ```text
 
@@ -160,20 +160,11 @@ app.include_router(analise_tecnica_emas.router, prefix="/api/v1")
 ## 🗓️ Proxima implementação
 
   - 🌟 **analise-fundamentos**
-  - Ao implementar, seguir o que foi desenvolvido na API analise-cilcos > Puell Multiple
-  - Acessar a mesma base de dados do Notion 
-  - Ler a documentação com as regras, na pasta /app/documentacao/analise-fundamentos.md
+  - Revisar aos calculos quantitativos e podereados
+  
 
 ### 📝 Melhorias implementadas na versão
 
-- 🌟 **Gerenciamento de sessão persistente**
-  - Reutilização de instância ativa (`tv`) sem recriar login desnecessariamente
-  - Logs indicam o reaproveitamento da sessão de forma clara
-- 🌟 **Logs de execução aprimorados**
-  - Feedback visual detalhado no console: emoji + descrição clara do fluxo
-  - Logs incluem ID da sessão, status de login, e origem dos dados
-- 🌟 **Mensagens de erro mais informativas**
-  - Ao falhar o login, o erro real da biblioteca `tvDatafeed` é mostrado
-- 🌟 **Validação de credenciais e variáveis de ambiente configurada**
-  - Caso `username` ou `password` estejam ausentes, impede fallback silencioso
-  - Corrigido falhas ao conectar com o Notion na API analise-ciclos
+- 🌟 **Analise fundamentos**
+  - alterado a busca dos indicadores para buscar do Notion
+  - daados anteriores não eram confiáveis
