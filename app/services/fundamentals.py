@@ -3,6 +3,7 @@
 import math
 import requests
 import pandas as pd
+import logging
 from datetime import datetime, timedelta
 from requests.exceptions import HTTPError
 
@@ -43,39 +44,61 @@ def _fetch_coinmetrics_timeseries(metric: str, days: int = 365) -> (float, float
     raise ValueError(f"Not enough data for metric '{metric}'")
 
 def get_model_variance() -> dict:
-    a, b = 3.36, 1.84
     try:
-        cg = _fetch_coingecko()
-        price_real = cg.get("price", 0)
-        supply_now = cg.get("supply", 0)
-        supply_prev, _ = _fetch_coinmetrics_timeseries("SplyCur", days=365)
-    except Exception:
-        price_real = 0
-        supply_now = 0
-        supply_prev = 0
+        from notion_client import Client
+        from app.config import get_settings
+        settings = get_settings()
+        NOTION_TOKEN = settings.NOTION_TOKEN
+        
+        # Obter o ID do banco de dados e verificar se é válido
+        DATABASE_ID = settings.NOTION_DATABASE_ID_MACRO.strip().replace('"', '')
+        
+        # Verificar se o DATABASE_ID não está vazio
+        if not DATABASE_ID:
+            logging.error("DATABASE_ID está vazio. Verifique a variável NOTION_DATABASE_ID_MACRO no arquivo .env")
+            raise ValueError("DATABASE_ID não pode ser vazio.")
+            
+        logging.info(f"Model Variance - DATABASE_ID: {DATABASE_ID}")
+        notion = Client(auth=NOTION_TOKEN)
 
-    flow = max(supply_now - supply_prev, 0)
-    s2f  = supply_now / flow if flow > 0 else 0
-    price_model = math.exp(b) * (s2f ** a) if s2f > 0 else 0
-    variance = math.log(price_real / price_model) if price_real > 0 and price_model > 0 else 0
+        response = notion.databases.query(database_id=DATABASE_ID)
+        for row in response["results"]:
+            props = row["properties"]
+            nome = props["indicador"]["title"][0]["plain_text"].strip().lower()
+            if nome == "model_variance":
+                valor = float(props["valor"]["number"])
 
-    if variance > 1:
-        score = 3
-    elif variance > 0:
-        score = 2
-    elif variance > -1:
-        score = 1
-    else:
-        score = 0
+                if valor > 1:
+                    score = 3
+                elif valor > 0:
+                    score = 2
+                elif valor > -1:
+                    score = 1
+                else:
+                    score = 0
 
-    peso = 0.35
-    return {
-        "indicador": "Model Variance (S2F)",
-        "valor": round(variance, 2),
-        "pontuacao_bruta": score,
-        "peso": peso,
-        "pontuacao_ponderada": round((score / 3) * peso, 4)
-    }
+                peso = 0.35
+                return {
+                    "indicador": "Model Variance (S2F)",
+                    "fonte": "Notion API",
+                    "valor": round(valor, 2),
+                    "pontuacao_bruta": score,
+                    "peso": peso,
+                    "pontuacao_ponderada": round((score / 3) * peso, 4)
+                }
+
+        raise ValueError("Indicador 'model_variance' não encontrado.")
+    except Exception as e:
+        peso = 0.35
+        return {
+            "indicador": "Model Variance (S2F)",
+            "fonte": "Notion API",
+            "valor": "erro",
+            "pontuacao_bruta": 0,
+            "peso": peso,
+            "pontuacao_ponderada": 0.0,
+            "erro": str(e)
+        }
 
 def get_mvrv_zscore() -> dict:
     peso = 0.25
