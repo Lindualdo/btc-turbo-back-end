@@ -1,4 +1,4 @@
-# 🚀 BTC Turbo API – v1.0.7
+# 🚀 BTC Turbo API – v1.0.8
 
 API em FastAPI para cálculo de indicadores técnicos e análise de ciclos do BTC, com deploy Dockerizado via Railway.
 
@@ -156,15 +156,17 @@ app.include_router(analise_tecnica_emas.router, prefix="/api/v1")
 - v1/analise-tecnica
 - v1/analise-cliclos
 - v1/analise-fundamentos
+- v1/analise-riscos (dados mokados)
 
 ## 🗓️ Proxima implementação
 
   - 🌟 **analise-riscos**
-  - Revisar aos calculos quantitativos e podereados
+  - implementar a coleta e calculo dos riscos
   
 
 ### 📝 Melhorias implementadas na versão
 
-- 🌟 **Analise fundamentos**
-  - revisado e corrigido todos os indicadore
-  - implementado relatorio executivo
+- 🌟 **Analise Riscos**
+  - Criado o endpoint
+  - criado todas as funções e arquivos
+  - estamos usando ainda dados Mokados
