@@ -270,6 +270,58 @@ def get_global_m2_expansion() -> dict:
             "erro": str(e)
         }
 
+def get_fundamentals_executive_summary(consolidado: float) -> dict:
+    """
+    Gera um resumo executivo com base na pontuação consolidada dos indicadores fundamentalistas.
+    
+    Args:
+        consolidado: Pontuação consolidada (0-5)
+        
+    Returns:
+        Dicionário contendo o resumo executivo formatado
+    """
+    # Determinar classificação com base na pontuação
+    if consolidado <= 1.0:
+        classificacao = "Muito Fraca"
+        cor = "🔴"
+        interpretacao = "Evitar qualquer exposição"
+    elif consolidado <= 2.5:
+        classificacao = "Fraca"
+        cor = "🟠"
+        interpretacao = "Operar apenas com setups muito seguros"
+    elif consolidado <= 3.5:
+        classificacao = "Moderada"
+        cor = "🟡"
+        interpretacao = "Risco controlado e seletividade"
+    elif consolidado <= 4.4:
+        classificacao = "Forte"
+        cor = "🔵"
+        interpretacao = "Operar com modelo de risco padrão"
+    else:  # consolidado >= 4.5
+        classificacao = "Muito Forte"
+        cor = "🟢"
+        interpretacao = "Operar com agressividade controlada"
+    
+    # Montar o resumo executivo
+    resumo = {
+        "titulo": "✅ Resumo Executivo - Tendência Fundamentalista BTC",
+        "pontuacao": f"🎯 Pontuação Final: {consolidado} / 5.0",
+        "classificacao": f"Classificação: {cor} {classificacao}",
+        "interpretacao": interpretacao,
+        "escala": {
+            "titulo": "🔢 Escala de Avaliação (0 a 5)",
+            "faixas": [
+                {"faixa": "🔴 Muito Fraca", "pontuacao": "0.0 – 1.0", "cor": "Vermelho", "interpretacao": "Evitar qualquer exposição"},
+                {"faixa": "🟠 Fraca", "pontuacao": "1.1 – 2.5", "cor": "Laranja", "interpretacao": "Operar apenas com setups muito seguros"},
+                {"faixa": "🟡 Moderada", "pontuacao": "2.6 – 3.5", "cor": "Amarelo", "interpretacao": "Risco controlado e seletividade"},
+                {"faixa": "🔵 Forte", "pontuacao": "3.6 – 4.4", "cor": "Azul", "interpretacao": "Operar com modelo de risco padrão"},
+                {"faixa": "🟢 Muito Forte", "pontuacao": "4.5 – 5.0", "cor": "Verde", "interpretacao": "Operar com agressividade controlada"}
+            ]
+        }
+    }
+    
+    return resumo
+
 def get_all_fundamentals() -> dict:
     indicadores = [
         get_model_variance(),
@@ -279,4 +331,16 @@ def get_all_fundamentals() -> dict:
     ]
     total_ponderado = sum(i["pontuacao_ponderada"] for i in indicadores)
     score_final = round((total_ponderado / 2) * 10, 2)  # normalização conforme doc
-    return {"tabela": indicadores, "consolidado": score_final}
+    
+    # Converter score_final para escala 0-5 (já está em escala 0-10)
+    score_final_5 = round(score_final / 2, 2)
+    
+    # Obter resumo executivo
+    resumo = get_fundamentals_executive_summary(score_final_5)
+    
+    return {
+        "tabela": indicadores, 
+        "consolidado": score_final,
+        "consolidado_5": score_final_5,
+        "resumo_executivo": resumo
+    }
