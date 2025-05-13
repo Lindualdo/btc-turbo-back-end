@@ -212,43 +212,68 @@ def get_vdd_multiple() -> dict:
             "erro": str(e)
         }
 
-def get_m2_global_expansion() -> dict:
+def get_global_m2_expansion() -> dict:
     peso = 0.20
     try:
-        df = pd.read_csv(FRED_M2_CSV)
-        df["DATE"] = pd.to_datetime(df.iloc[:, 0])
-        series = df.set_index("DATE")[df.columns[1]]
-        latest = series.iloc[-1]
-        cutoff = series.index.max() - pd.DateOffset(months=6)
-        prev = series[series.index <= cutoff]
-        prev_val = prev.iloc[-1] if not prev.empty else series.iloc[0]
-        pct6m = (latest / prev_val - 1) * 100
-    except:
-        pct6m = 0
+        from notion_client import Client
+        from app.config import get_settings
+        settings = get_settings()
+        NOTION_TOKEN = settings.NOTION_TOKEN
+        
+        # Obter o ID do banco de dados e verificar se é válido
+        DATABASE_ID = settings.NOTION_DATABASE_ID_MACRO.strip().replace('"', '')
+        
+        # Verificar se o DATABASE_ID não está vazio
+        if not DATABASE_ID:
+            logging.error("DATABASE_ID está vazio. Verifique a variável NOTION_DATABASE_ID_MACRO no arquivo .env")
+            raise ValueError("DATABASE_ID não pode ser vazio.")
+            
+        logging.info(f"Global M2 Expansion - DATABASE_ID: {DATABASE_ID}")
+        notion = Client(auth=NOTION_TOKEN)
 
-    if pct6m > 10:
-        score = 3
-    elif pct6m > 5:
-        score = 2
-    elif pct6m > 0:
-        score = 1
-    else:
-        score = 0
+        response = notion.databases.query(database_id=DATABASE_ID)
+        for row in response["results"]:
+            props = row["properties"]
+            nome = props["indicador"]["title"][0]["plain_text"].strip().lower()
+            if nome == "m2_global":
+                valor = float(props["valor"]["number"])
 
-    return {
-        "indicador": "Expansão Global M2 (6m)",
-        "valor": round(pct6m, 2),
-        "pontuacao_bruta": score,
-        "peso": peso,
-        "pontuacao_ponderada": round((score / 3) * peso, 4)
-    }
+                if valor > 10:
+                    score = 3
+                elif valor > 5:
+                    score = 2
+                elif valor > 0:
+                    score = 1
+                else:
+                    score = 0
+
+                return {
+                    "indicador": "Expansão Global M2 (6m)",
+                    "fonte": "Notion API",
+                    "valor": round(valor, 2),
+                    "pontuacao_bruta": score,
+                    "peso": peso,
+                    "pontuacao_ponderada": round((score / 3) * peso, 4)
+                }
+
+        raise ValueError("Indicador 'm2_global' não encontrado.")
+    except Exception as e:
+        return {
+            "indicador": "Expansão Global M2 (6m)",
+            "fonte": "Notion API",
+            "valor": "erro",
+            "pontuacao_bruta": 0,
+            "peso": peso,
+            "pontuacao_ponderada": 0.0,
+            "erro": str(e)
+        }
 
 def get_all_fundamentals() -> dict:
     indicadores = [
         get_model_variance(),
         get_mvrv_zscore(),
         get_vdd_multiple(),
-        get_m2_global_expansion()
+        get_global_m2_expansion()
     ]
     total_ponderado = sum(i["pontuacao_ponderada"] for i in indicadores)
     score_final = round((total_ponderado / 2) * 10, 2)  # normalização conforme doc
