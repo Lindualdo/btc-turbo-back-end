@@ -94,3 +94,15 @@ Pontuação Final = (Pontuação Ponderada Total / 2.0) × 10
 - Pontos fortes destacados (ex: indicadores muito positivos).
 - Pontos de atenção (ex: divergências entre indicadores).
 - Risco/Observação especial se necessário.
+
+✅ Resumo Executivo - Tendência Fundamentalista BTC
+🎯 Pontuação Final: 2.17 / 5.0
+Classificação: 🟠 Tendência Fraca
+
+🔢 Escala de Avaliação (0 a 5)
+Faixa	Pontuação	Cor	Interpretação
+🔴 Muito Fraca	0.0 – 1.0	Vermelho	Evitar qualquer exposição
+🟠 Fraca	1.1 – 2.5	Laranja	Operar apenas com setups muito seguros
+🟡 Moderada	2.6 – 3.5	Amarelo	Risco controlado e seletividade
+🔵 Forte	3.6 – 4.4	Azul	Operar com modelo de risco padrão
+🟢 Muito Forte	4.5 – 5.0	Verde	Operar com agressividade controlada
