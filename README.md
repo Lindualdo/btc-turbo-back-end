@@ -122,7 +122,7 @@ GET /openapi.json
 
 ---
 
-## 🔧 Padres Técnicos
+## 🔧 Padrões Técnicos
 
 - APIs organizadas por domínio (`/v1/analise-tecnica-emas`, `/v1/analise-ciclos`)
 - Separação clara entre lógica, serviços, e configuração
@@ -139,8 +139,6 @@ GET /openapi.json
 
 ## Registro dos routers com prefixo versionado no main
 app.include_router(analise_tecnica_emas.router, prefix="/api/v1")
-app.include_router(analise_ciclos.router, prefix="/api/v1")
-app.include_router(analise_fundamentos.router, prefix="/api/v1")
 
 ## Nos routers usar assim
 @@router.get("/analise-ciclos", 
@@ -153,7 +151,20 @@ app.include_router(analise_fundamentos.router, prefix="/api/v1")
 
 ```text
 
-### 📝 Melhorias implementadas
+### 📝 APIs já concluídas e funcionando 100% estáveis
+
+- v1/analise-tecnica
+- v1/analise-cliclos
+- v1/analise-fundamentos
+
+## 🗓️ Proxima implementação
+
+  - 🌟 **analise-fundamentos**
+  - Ao implementar, seguir o que foi desenvolvido na API analise-cilcos > Puell Multiple
+  - Acessar a mesma base de dados do Notion 
+  - Ler a documentação com as regras, na pasta /app/documentacao/analise-fundamentos.md
+
+### 📝 Melhorias implementadas na versão
 
 - 🌟 **Gerenciamento de sessão persistente**
   - Reutilização de instância ativa (`tv`) sem recriar login desnecessariamente
@@ -163,21 +174,6 @@ app.include_router(analise_fundamentos.router, prefix="/api/v1")
   - Logs incluem ID da sessão, status de login, e origem dos dados
 - 🌟 **Mensagens de erro mais informativas**
   - Ao falhar o login, o erro real da biblioteca `tvDatafeed` é mostrado
-- 🌟 **Validação de credenciais configurada**
+- 🌟 **Validação de credenciais e variáveis de ambiente configurada**
   - Caso `username` ou `password` estejam ausentes, impede fallback silencioso
-
-  ### 📝 Funcionamento das APIs - Inf. importantes
-
-  - 🌟 **analise-cilcos**
-  - Alguns indicadres estamos buscando em uma tabela no Notion
-  - Os demanis indicadores, são buscado direto nas fontes oficiais da especificação via API
-  - Futuramente tentaremos outras abordagens, tipo scraping
-
-
-## 🗓️ Proxima implementação
-
-  - 🌟 **analise-fundamentos**
-  - Reregra está implementadade de forma fixa no codigo
-  - Ao implementar, seguir o que foi desenvolvido na API analise-cilcos > Puell Multiple
-  - Acessar a mesma base de dados do Notion 
-  - Ler a documentação com as regras, na pasta /app/documentacao/analise-fundamentos.md
+  - Corrigido falhas ao conectar com o Notion na API analise-ciclos
