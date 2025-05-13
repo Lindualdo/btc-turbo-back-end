@@ -242,9 +242,9 @@ def get_global_m2_expansion() -> dict:
                 # Atualizando as regras conforme documentação
                 if valor > 3:
                     score = 2
-                elif valor > 1:
+                elif valor >= 1 and valor <= 3:
                     score = 1
-                elif valor >= -1 and valor <= 1:
+                elif valor >= -1 and valor < 1:
                     score = 0
                 else:  # Valor < -1
                     score = 0
