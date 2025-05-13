@@ -68,11 +68,12 @@ def get_model_variance() -> dict:
             if nome == "model_variance":
                 valor = float(props["valor"]["number"])
 
-                if valor > 1:
+                # Ajustando a lógica conforme a documentação
+                if valor <= -1.4:
                     score = 3
-                elif valor > 0:
+                elif valor <= -0.8:
                     score = 2
-                elif valor > -1:
+                elif valor <= -0.3:
                     score = 1
                 else:
                     score = 0
