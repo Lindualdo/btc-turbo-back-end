@@ -66,14 +66,21 @@ GET /openapi.json
     │   ├── analise_ciclos.py
     │   ├── analise_fundamentos.py
     │   └── analise_tecnica_emas.py
+    │   └── analise_riscos.py
     ├── services
     │   ├── __init__.py
     │   ├── btc_analysis.py
     │   ├── fundamentals.py
     │   └── tv_session_manager.py
+    │   └── risk_analysis.py
     └── utils
-        ├── __init__.py
-        └── ema_utils.py
+    │     ├── __init__.py
+    │     └── ema_utils.py
+    ├── docs
+    │   ├── analise_ciclos.md
+    │   ├── analise_fundamentos.md
+    │   ├── analise_riscos.md
+    │   └── analise_tenica_emas.md
 ```
 ---
 
@@ -147,7 +154,7 @@ app.include_router(analise_tecnica_emas.router, prefix="/api/v1")
 
 ---
 
-## 🗓️ Versão atual 1.0.7 - 13/05/2025 12:30
+## 🗓️ Versão atual 1.0.8 - 13/05/2025 18:00
 
 ```text
 
@@ -169,4 +176,4 @@ app.include_router(analise_tecnica_emas.router, prefix="/api/v1")
 - 🌟 **Analise Riscos**
   - Criado o endpoint
   - criado todas as funções e arquivos
-  - estamos usando ainda dados Mokados
+  - estamos usando ainda dados Mokados na analise de riscos
