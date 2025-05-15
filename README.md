@@ -1,4 +1,4 @@
-# 🚀 BTC Turbo API – v1.0.8
+# 🚀 BTC Turbo API – v1.0.9
 
 API em FastAPI para cálculo de indicadores técnicos e análise de ciclos do BTC, com deploy Dockerizado via Railway.
 
@@ -154,7 +154,7 @@ app.include_router(analise_tecnica_emas.router, prefix="/api/v1")
 
 ---
 
-## 🗓️ Versão atual 1.0.8 - 13/05/2025 18:00
+## 🗓️ Versão atual 1.0.9 - 15/05/2025 08:48
 
 ```text
 
@@ -171,9 +171,47 @@ app.include_router(analise_tecnica_emas.router, prefix="/api/v1")
   - implementar a coleta e calculo dos riscos
   
 
-### 📝 Melhorias implementadas na versão
+📝 Melhorias implementadas na versão
 
-- 🌟 **Analise Riscos**
-  - Criado o endpoint
-  - criado todas as funções e arquivos
-  - estamos usando ainda dados Mokados na analise de riscos
+📁 Novos arquivos criados:
+app/utils/rsi_utils.py
+→ Funções utilitárias para cálculo e análise do RSI
+
+app/routers/analise_tecnica_rsi.py
+→ Endpoint público para consulta de RSI em todos os timeframes
+
+app/services/risk_analysis_rsi.py
+→ Serviço específico para cálculo de risco baseado em RSI
+
+🧠 Atualização no módulo principal de análise de riscos:
+Integração do cálculo real de RSI na função calculate_technical_risk()
+
+Inclusão de mais detalhes na resposta, exibindo os componentes de risco técnico
+
+🌐 Registro do novo endpoint:
+Atualização do arquivo app/main.py para incluir o router do RSI
+
+✅ Funcionalidades disponíveis:
+Cálculo do RSI em múltiplos timeframes
+
+Avaliação de risco com base nos valores reais de RSI
+
+Geração de alertas quando o RSI indicar sobrecompra
+
+Inclusão de um racional explicativo para cada ponto da análise
+
+🔍 Teste agora:
+Ver valores atuais de RSI:
+GET /api/v1/analise-tecnica-rsi
+
+Ver análise de risco completa (com RSI real):
+GET /api/v1/analise-riscos
+
+📌 Próximos passos
+Implementar os demais componentes da análise técnica:
+
+Médias Móveis (EMAs)
+
+Divergências
+
+Seguir o mesmo padrão modular e reutilizável adotado no RSI
