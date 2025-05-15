@@ -154,71 +154,91 @@ app.include_router(analise_tecnica_emas.router, prefix="/api/v1")
 
 ---
 
-```text
-
 ### 📝 APIs já concluídas e funcionando 100% estáveis
 
 - v1/analise-tecnica
 - v1/analise-cliclos
 - v1/analise-fundamentos
-- v1/analise-riscos (ifr, divergencia ifr)
+- v1/analise-riscos (ifr, divergencia ifr, força da tendecia)
 
 ## 🗓️ Proxima implementação
 
   - 🌟 **analise-riscos**
   - força da tendencia
 
-  
-# v 1.0.10 - Implementação do Indicador de Divergências RSI - 15/05/25 10:11
 
-## Objetivos Alcançados
+# 📄 Documentação: Endpoint de Análise de Tendência e Risco - v 1.0.11
 
-- Criação de sistema para detectar divergências entre RSI e preço de Bitcoin  
-- Integração com análise de riscos no BTC Turbo
-
----
-
-## Arquivos Implementados
-
-- `app/utils/divergence_utils.py` – Funções para detectar e analisar divergências  
-- `app/routers/analise_divergencia_rsi.py` – Endpoint para análise isolada de divergências  
-- `app/services/risk_analysis_divergencia.py` – Serviço para análise de risco de divergências  
+## 🔍 Visão Geral
+O endpoint `/api/v1/analise-tendencia-risco` fornece uma análise detalhada do risco baseado na força da tendência atual do Bitcoin.  
+Este componente inverte o score de força técnica para calcular um nível de risco, permitindo decisões de investimento mais seguras.
 
 ---
 
-## Algoritmo de Detecção
+## ⚙️ Especificações Técnicas
 
-- Detecta topos e fundos em gráficos de preço e RSI  
-- **Divergência Bullish:** preço faz fundo mais baixo + RSI faz fundo mais alto  
-- **Divergência Bearish:** preço faz topo mais alto + RSI faz topo mais baixo  
+### 📌 Endpoint
+GET /api/v1/analise-tendencia-risco
 
----
 
-## Funcionalidades
+### 📥 Resposta
+```json
+{
+  "componente": "Análise de Tendência",
+  "pontuacao": 2.5,
+  "score_forca_tendencia": 7.5,
+  "pontuacao_maxima": 10.0,
+  "classificacao": "Monitorar",
+  "timeframes": { ... },
+  "alertas": [ ... ],
+  "racional": "...",
+  "detalhes": { ... },
+  "classificacao_detalhada": { ... },
+  "interpretacao_atual": { ... }
+}
+🧩 Campos Principais
+pontuacao: Nível de risco calculado (0-10)
 
-- Análise multi-timeframe (`15m`, `30m`, `1h`, `4h`, `1d`, `1w`)  
-- Ponderação de risco por timeframe (maior peso para timeframes maiores)  
-- Cálculo de pontuação de risco com base em divergências bearish  
-- Fornecimento de detalhes sobre divergências (datas, valores, deltas)
+score_forca_tendencia: Score original de força técnica das EMAs antes da inversão
 
----
+classificacao: Categoria de risco qualitativa
 
-## Endpoints
+timeframes: Detalhes por período de análise
 
-- `GET /api/v1/analise-divergencia-rsi` – Análise completa de divergências  
-- `GET /api/v1/analise-riscos` – Análise integrada de risco (agora inclui divergências)  
+alertas: Avisos específicos baseados no nível de risco
 
----
+interpretacao_atual: Recomendações de ação baseadas no nível de risco
 
-## Tecnologias Utilizadas
+🧮 Metodologia de Cálculo
+O sistema obtém o score consolidado de força da tendência do endpoint /api/v1/analise-tecnica-emas.
 
-- `Pandas` – manipulação de dados e séries temporais  
-- `TradingView API` – obtenção de dados de mercado  
-- `FastAPI` – exposição de endpoints HTTP  
-- Métodos de análise técnica para cálculo de RSI (14 períodos)
+O score de risco é calculado com a fórmula:
 
----
+Risco = 10 - Score de Força
+O resultado é classificado em 5 níveis:
 
-## Conclusão
+Faixa de Risco	Alerta	Interpretação
+0.0 - 1.9	✅ Nenhum	Estrutura técnica saudável
+2.0 - 3.9	⚠️ Monitorar	Pequenos sinais de fraqueza
+4.0 - 5.9	🟠 Alerta Moderado	Estrutura comprometida
+6.0 - 7.9	🔴 Alerta Crítico	Provável reversão
+8.0 - 10.0	🚨 Alerta Máximo	Colapso técnico estrutural
 
-O sistema agora detecta automaticamente divergências entre RSI e preço, fornecendo alertas e quantificando o risco associado a essas divergências em vários timeframes.
+🚀 Implementação
+O serviço utiliza detecção automática de ambiente para funcionar corretamente tanto em desenvolvimento local quanto em produção no Railway:
+
+# Detecta o ambiente e configura a URL base corretamente
+is_production = os.environ.get("RAILWAY_ENVIRONMENT") == "production"
+base_url = "https://btc-turbo-api-production.up.railway.app/api/v1" if is_production else f"http://localhost:{settings.PORT}/api/v1"
+🧠 Uso Recomendado
+Este indicador deve ser utilizado como parte de uma análise técnica mais ampla para:
+
+Avaliar a saúde da tendência atual
+Gerenciar exposição ao risco
+Determinar níveis apropriados de alavancagem
+Identificar momentos ideais para entrada e saída de posições
+
+📝 Notas Adicionais
+O cálculo inverte intencionalmente o score para que valores altos representem maior risco.
+Cada nível de risco vem com recomendações específicas de gerenciamento de capital.
+A análise abrange múltiplos timeframes para uma visão abrangente do mercado.
