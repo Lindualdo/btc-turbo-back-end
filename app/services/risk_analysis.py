@@ -1,5 +1,3 @@
-# app/services/risk_analysis.py
-
 import logging
 from typing import Dict, List, Any, Tuple
 from app.services.risk_analysis_rsi import calculate_rsi_risk
@@ -27,7 +25,7 @@ def calculate_technical_risk() -> Dict[str, Any]:
         "1W": 0.0,  # +2.0 se fraco
         "1D": 0.0,  # +1.5 se fraco
         "4H": 0.0,  # +1.0 se fraco
-        "intraday": 0.5   # +0.5 se fraco (1H/30M/15M)
+        "intraday": 0.5    # +0.5 se fraco (1H/30M/15M)
     }
     
     # Soma pontuações de todos os indicadores
@@ -71,6 +69,25 @@ def calculate_technical_risk() -> Dict[str, Any]:
         trend_risk_component
     ]
     
+    # Incluir dados consolidados dos indicadores de risco técnico
+    indicadores_tecnicos = {
+        "rsi_sobrecompra": {
+            "pontuacao": total_rsi_overbought,
+            "pontuacao_maxima": rsi_risk_component["pontuacao_maxima"],
+            "valores": rsi_risk_component.get("valores", {})
+        },
+        "divergencia_rsi": {
+            "pontuacao": total_rsi_divergence,
+            "pontuacao_maxima": divergence_risk_component["pontuacao_maxima"],
+            "divergencias": divergence_risk_component.get("divergencias_detectadas", {})
+        },
+        "risco_tendencia": {
+            "pontuacao": total_trend_risk,
+            "pontuacao_maxima": trend_risk_component["pontuacao_maxima"],
+            "score_forca_tendencia": trend_risk_component.get("detalhes", {}).get("score_forca_original", 0)
+        }
+    }
+    
     return {
         "categoria": "Risco Técnico",
         "pontuacao": round(raw_score, 1),
@@ -78,7 +95,8 @@ def calculate_technical_risk() -> Dict[str, Any]:
         "peso": 0.15,
         "pontuacao_ponderada": round(raw_score * 0.15, 2),
         "alertas": alerts if alerts else ["Sem alertas técnicos"],
-        "componentes": componentes
+        "componentes": componentes,
+        "indicadores_tecnicos": indicadores_tecnicos  # Novo campo consolidado
     }
 
 def calculate_btc_structural_risk() -> Dict[str, Any]:
@@ -264,7 +282,7 @@ def get_risk_executive_summary(normalized_score: float, risk_blocks: List[Dict[s
         main_risks.append("Nenhum risco significativo detectado")
     
     return {
-        "titulo": "🔍 Resumo gerencial do risco",
+        "titulo": "📝 Resumo gerencial do risco",
         "pontuacao": f"Pontuação Final Normalizada: {normalized_score:.2f} / 10",
         "classificacao": f"{classification['emoji']} {classification['classificacao']}",
         "descricao": classification['descricao'],
