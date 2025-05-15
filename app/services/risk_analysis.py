@@ -2,6 +2,7 @@
 
 import logging
 from typing import Dict, List, Any, Tuple
+from app.services.risk_analysis_rsi import calculate_rsi_risk
 
 def calculate_technical_risk() -> Dict[str, Any]:
     """
@@ -10,19 +11,15 @@ def calculate_technical_risk() -> Dict[str, Any]:
     Pontuação máxima: 15 pontos
     Peso na ponderação estratégica: 0.15
     """
-    # Valores fixos para teste inicial
+    # Calcular o componente de risco de RSI (sobrecompra)
+    rsi_risk_component = calculate_rsi_risk()
+    
+    # Valores fixos para teste dos outros componentes
     emas_risk = {
         "1W": 0.0,  # +2.0 se fraco
         "1D": 0.0,  # +1.5 se fraco
         "4H": 0.0,  # +1.0 se fraco
         "intraday": 0.5  # +0.5 se fraco (1H/30M/15M)
-    }
-    
-    rsi_overbought_risk = {
-        "1W": 0.0,  # +2.0 se IFR > 70
-        "1D": 1.5,  # +1.5 se IFR > 70
-        "4H": 0.0,  # +1.0 se IFR > 70
-        "intraday": 0.0  # +0.5 se IFR > 70 (1H/30M/15M)
     }
     
     rsi_divergence_risk = {
@@ -34,28 +31,47 @@ def calculate_technical_risk() -> Dict[str, Any]:
     
     # Soma pontuações de todos os indicadores
     total_emas = sum(emas_risk.values())
-    total_rsi_overbought = sum(rsi_overbought_risk.values())
+    total_rsi_overbought = rsi_risk_component["pontuacao"]
     total_rsi_divergence = sum(rsi_divergence_risk.values())
     
     raw_score = total_emas + total_rsi_overbought + total_rsi_divergence
     
     # Criar alertas para os riscos detectados
     alerts = []
+    
+    # Alertas para EMAs
     if total_emas > 0:
         if emas_risk["4H"] > 0 or emas_risk["intraday"] > 0:
             alerts.append("Falta alinhamento EMAs 4H e Intradays")
         else:
             alerts.append("Falta alinhamento EMAs em timeframes maiores")
-            
-    if total_rsi_overbought > 0:
-        if rsi_overbought_risk["1D"] > 0:
-            alerts.append("IFR em sobrecompra no Diário")
-        if rsi_overbought_risk["4H"] > 0:
-            alerts.append("IFR em sobrecompra no 4H")
     
+    # Adicionar alertas do RSI
+    alerts.extend(rsi_risk_component["alertas"])
+    
+    # Alertas para divergências
     if total_rsi_divergence > 0:
         if rsi_divergence_risk["4H"] > 0:
             alerts.append("Divergência IFR no 4H")
+    
+    # Componentes da análise técnica
+    componentes = [
+        {
+            "nome": "Alinhamento EMAs",
+            "pontuacao": round(total_emas, 2),
+            "pontuacao_maxima": 5.0,
+            "valores": emas_risk,
+            "racional": "Análise qualitativa baseada na orientação e disposição das EMAs"
+        },
+        rsi_risk_component,
+        {
+            "nome": "Divergências RSI",
+            "pontuacao": round(total_rsi_divergence, 2),
+            "pontuacao_maxima": 5.0,
+            "valores": rsi_divergence_risk,
+            "racional": "Análise qualitativa de divergências entre preço e RSI"
+        }
+    ]
     
     return {
         "categoria": "Risco Técnico",
@@ -63,7 +79,8 @@ def calculate_technical_risk() -> Dict[str, Any]:
         "max_pontuacao": 15.0,
         "peso": 0.15,
         "pontuacao_ponderada": round(raw_score * 0.15, 2),
-        "alertas": alerts if alerts else ["Sem alertas técnicos"]
+        "alertas": alerts if alerts else ["Sem alertas técnicos"],
+        "componentes": componentes
     }
 
 def calculate_btc_structural_risk() -> Dict[str, Any]:
