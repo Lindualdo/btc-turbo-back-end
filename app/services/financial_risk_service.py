@@ -161,6 +161,14 @@ class FinancialRiskService:
     
     def _extract_health_factor(self, soup) -> float:
         try:
+            # Nova estratégia: Buscar pela classe específica "mantine-Text-root mantine-1r5e5bx"
+            mantine_elements = soup.find_all("span", {"class": "mantine-Text-root mantine-1r5e5bx"})
+            for element in mantine_elements:
+                # Verificar se é o elemento que contém o Health Factor
+                if element.text and re.match(r'^\d+(\.\d+)?$', element.text.strip()):
+                    # Normalmente é um número simples como "2.4"
+                    return float(element.text.strip())
+            
             # Estratégia 1: Buscar por grid-item com label específico
             elements = soup.find_all("div", {"class": "grid-item"})
             for element in elements:
