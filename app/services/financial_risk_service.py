@@ -22,54 +22,91 @@ class FinancialRiskService:
             
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
+                print(f"Fazendo requisição para: {self.defisim_url}")
                 response = await client.get(self.defisim_url)
                 response.raise_for_status()
                 
                 # Parsear o HTML com BeautifulSoup
                 soup = BeautifulSoup(response.text, 'html.parser')
+                html_content = str(soup)
                 
                 # Extração dos valores diretamente do HTML
-                health_factor = 2.0  # Valor default
-                supplied_value = 10000  # Valor default
-                net_asset_value = 5000  # Valor default
+                health_factor = None  # Vai ser atualizado abaixo
+                supplied_value = None
+                net_asset_value = None
                 
-                # Buscar os valores visíveis na página usando seletores específicos
+                # 1. Buscar o Health Factor diretamente pelo data-testid
                 try:
-                    # Localizar o Health Factor por classe específica do Mantine
-                    health_factor_elements = soup.find_all("div", {"data-testid": "health-factor"})
-                    if health_factor_elements:
-                        for elem in health_factor_elements:
-                            # Procurar por elementos numéricos dentro deste contenedor
-                            value_text = elem.text.strip()
-                            match = re.search(r'\d+(\.\d+)?', value_text)
-                            if match:
-                                health_factor = float(match.group())
-                                break
-                    
-                    if health_factor == 2.0:  # Se ainda não encontrou, tente outros seletores
-                        # Buscar por spans específicos que possam conter o valor
-                        spans = soup.find_all("span", {"class": lambda x: x and "mantine" in x})
-                        for span in spans:
-                            if span.text and re.match(r'^\d+(\.\d+)?$', span.text.strip()):
-                                health_factor = float(span.text.strip())
-                                break
-                    
-                    # Buscar os valores de Supplied e Net Asset
-                    grid_items = soup.find_all("div", {"class": lambda x: x and "grid" in x})
-                    for item in grid_items:
-                        item_text = item.text.strip()
-                        if "Supplied Asset Value" in item_text:
-                            match = re.search(r'\$([0-9,.]+)', item_text)
-                            if match:
-                                supplied_value = float(match.group(1).replace(",", ""))
-                        elif "Net Asset Value" in item_text:
-                            match = re.search(r'\$([0-9,.]+)', item_text)
-                            if match:
-                                net_asset_value = float(match.group(1).replace(",", ""))
-                                
+                    health_factor_div = soup.find("div", {"data-testid": "health-factor"})
+                    if health_factor_div:
+                        # Extrair o valor numérico usando regex
+                        text_content = health_factor_div.text.strip()
+                        hf_match = re.search(r'[\d.]+', text_content)
+                        if hf_match:
+                            health_factor = float(hf_match.group())
+                            print(f"Health Factor encontrado via data-testid: {health_factor}")
                 except Exception as e:
-                    print(f"Erro no parsing detalhado: {e}")
-                    
+                    print(f"Erro ao buscar Health Factor por data-testid: {e}")
+                
+                # 2. Se não encontrou, buscar em classes específicas do Mantine
+                if not health_factor:
+                    try:
+                        # Buscar em todos os spans do Mantine que podem conter valores
+                        mantine_texts = soup.find_all("span", {"class": lambda x: x and "mantine-Text-root" in x})
+                        for text_elem in mantine_texts:
+                            text = text_elem.text.strip()
+                            # Verificar se é apenas um número (possível health factor)
+                            if re.match(r'^[\d.]+$', text):
+                                health_factor = float(text)
+                                print(f"Health Factor encontrado via classes Mantine: {health_factor}")
+                                break
+                    except Exception as e:
+                        print(f"Erro ao buscar Health Factor por classes Mantine: {e}")
+                
+                # 3. Método mais genérico - buscar tabelas ou grid de dados
+                if not health_factor or not supplied_value or not net_asset_value:
+                    try:
+                        # Buscar em todas as divs que possam conter grid de dados
+                        data_items = soup.find_all("div", {"class": lambda x: x and ("grid" in x or "card" in x)})
+                        for item in data_items:
+                            item_text = item.text.strip()
+                            
+                            # Buscar Health Factor
+                            if not health_factor and "Health Factor" in item_text:
+                                hf_match = re.search(r'[\d.]+', item_text.split("Health Factor")[-1])
+                                if hf_match:
+                                    health_factor = float(hf_match.group())
+                                    print(f"Health Factor encontrado via grid: {health_factor}")
+                            
+                            # Buscar Supplied Asset Value
+                            if not supplied_value and "Supplied Asset" in item_text:
+                                val_match = re.search(r'\$[\d,]+(?:\.\d+)?', item_text)
+                                if val_match:
+                                    supplied_value = float(val_match.group().replace("$", "").replace(",", ""))
+                                    print(f"Supplied Asset Value encontrado: {supplied_value}")
+                            
+                            # Buscar Net Asset Value
+                            if not net_asset_value and "Net Asset" in item_text:
+                                val_match = re.search(r'\$[\d,]+(?:\.\d+)?', item_text)
+                                if val_match:
+                                    net_asset_value = float(val_match.group().replace("$", "").replace(",", ""))
+                                    print(f"Net Asset Value encontrado: {net_asset_value}")
+                    except Exception as e:
+                        print(f"Erro ao buscar dados via listas/grids: {e}")
+                
+                # 4. Último recurso - salvar o HTML completo para diagnóstico
+                if not health_factor or not supplied_value or not net_asset_value:
+                    print("Não foi possível encontrar todos os valores necessários")
+                    if not health_factor:
+                        print("Health Factor não encontrado, usando valor padrão de 1.8")
+                        health_factor = 1.8  # Valor mais conservador que o anterior
+                    if not supplied_value:
+                        print("Supplied Asset Value não encontrado, usando valor padrão")
+                        supplied_value = 10000
+                    if not net_asset_value:
+                        print("Net Asset Value não encontrado, usando valor padrão")
+                        net_asset_value = 5000
+                
                 # Cálculo da alavancagem
                 leverage = supplied_value / net_asset_value if net_asset_value > 0 else float('inf')
                 
@@ -89,13 +126,14 @@ class FinancialRiskService:
                 return data
                 
         except Exception as e:
+            print(f"Erro ao fazer scraping: {e}")
             # Em caso de erro, tenta usar o cache antigo se disponível
             if self.cache:
                 return self.cache
             # Ou retorna valores de fallback
             return {
-                "health_factor": 2.0,  # Valor conservador
-                "alavancagem": 2.0,    # Valor conservador
+                "health_factor": 1.8,  # Valor mais conservador
+                "alavancagem": 1.8,    # Valor mais conservador
                 "supplied_asset_value": 0,
                 "net_asset_value": 0,
                 "error": str(e),
