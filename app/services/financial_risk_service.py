@@ -98,17 +98,17 @@ class FinancialRiskService:
                 if not health_factor or not supplied_value or not net_asset_value:
                     print("Não foi possível encontrar todos os valores necessários")
                     if not health_factor:
-                        print("Health Factor não encontrado, usando valor padrão de 1.8")
-                        health_factor = 1.8  # Valor mais conservador que o anterior
+                        print("Não foi possível encontrar Health Factor, usando valor padrão")
+                        health_factor = 0  # Valor zero para indicar falha na extração
                     if not supplied_value:
-                        print("Supplied Asset Value não encontrado, usando valor padrão")
-                        supplied_value = 10000
+                        print("Não foi possível encontrar Supplied Asset Value, usando valor padrão")
+                        supplied_value = 0  # Valor zero para indicar falha na extração
                     if not net_asset_value:
-                        print("Net Asset Value não encontrado, usando valor padrão")
-                        net_asset_value = 5000
+                        print("Não foi possível encontrar Net Asset Value, usando valor padrão")
+                        net_asset_value = 0  # Valor zero para indicar falha na extração
                 
                 # Cálculo da alavancagem
-                leverage = supplied_value / net_asset_value if net_asset_value > 0 else float('inf')
+                leverage = supplied_value / net_asset_value if net_asset_value > 0 else 0  # Zero em caso de erro
                 
                 # Preparar resposta
                 data = {
@@ -132,8 +132,8 @@ class FinancialRiskService:
                 return self.cache
             # Ou retorna valores de fallback
             return {
-                "health_factor": 1.8,  # Valor mais conservador
-                "alavancagem": 1.8,    # Valor mais conservador
+                "health_factor": 0,  # Valor zero para indicar falha na extração
+                "alavancagem": 0,    # Valor zero para indicar falha na extração
                 "supplied_asset_value": 0,
                 "net_asset_value": 0,
                 "error": str(e),
