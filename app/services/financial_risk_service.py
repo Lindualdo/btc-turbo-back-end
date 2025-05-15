@@ -28,11 +28,48 @@ class FinancialRiskService:
                 # Parsear o HTML com BeautifulSoup
                 soup = BeautifulSoup(response.text, 'html.parser')
                 
-                # Extração dos valores
-                supplied_value = self._extract_supplied_asset_value(soup)
-                net_asset_value = self._extract_net_asset_value(soup)
-                health_factor = self._extract_health_factor(soup)
+                # Extração dos valores diretamente do HTML
+                health_factor = 2.0  # Valor default
+                supplied_value = 10000  # Valor default
+                net_asset_value = 5000  # Valor default
                 
+                # Buscar os valores visíveis na página usando seletores específicos
+                try:
+                    # Localizar o Health Factor por classe específica do Mantine
+                    health_factor_elements = soup.find_all("div", {"data-testid": "health-factor"})
+                    if health_factor_elements:
+                        for elem in health_factor_elements:
+                            # Procurar por elementos numéricos dentro deste contenedor
+                            value_text = elem.text.strip()
+                            match = re.search(r'\d+(\.\d+)?', value_text)
+                            if match:
+                                health_factor = float(match.group())
+                                break
+                    
+                    if health_factor == 2.0:  # Se ainda não encontrou, tente outros seletores
+                        # Buscar por spans específicos que possam conter o valor
+                        spans = soup.find_all("span", {"class": lambda x: x and "mantine" in x})
+                        for span in spans:
+                            if span.text and re.match(r'^\d+(\.\d+)?$', span.text.strip()):
+                                health_factor = float(span.text.strip())
+                                break
+                    
+                    # Buscar os valores de Supplied e Net Asset
+                    grid_items = soup.find_all("div", {"class": lambda x: x and "grid" in x})
+                    for item in grid_items:
+                        item_text = item.text.strip()
+                        if "Supplied Asset Value" in item_text:
+                            match = re.search(r'\$([0-9,.]+)', item_text)
+                            if match:
+                                supplied_value = float(match.group(1).replace(",", ""))
+                        elif "Net Asset Value" in item_text:
+                            match = re.search(r'\$([0-9,.]+)', item_text)
+                            if match:
+                                net_asset_value = float(match.group(1).replace(",", ""))
+                                
+                except Exception as e:
+                    print(f"Erro no parsing detalhado: {e}")
+                    
                 # Cálculo da alavancagem
                 leverage = supplied_value / net_asset_value if net_asset_value > 0 else float('inf')
                 
@@ -57,170 +94,13 @@ class FinancialRiskService:
                 return self.cache
             # Ou retorna valores de fallback
             return {
-                "health_factor": 4.5,  # Valor mais realista
+                "health_factor": 2.0,  # Valor conservador
                 "alavancagem": 2.0,    # Valor conservador
                 "supplied_asset_value": 0,
                 "net_asset_value": 0,
                 "error": str(e),
                 "timestamp": current_time.isoformat()
             }
-    
-    def _extract_supplied_asset_value(self, soup) -> float:
-        try:
-            # Estratégia 1: Buscar por grid-item com label específico
-            elements = soup.find_all("div", {"class": "grid-item"})
-            for element in elements:
-                heading = element.find("div", {"class": "item-label"})
-                if heading and "Supplied Asset Value" in heading.text:
-                    value_text = element.find("div", {"class": "item-value"}).text.strip()
-                    return float(value_text.replace("$", "").replace(",", ""))
-            
-            # Estratégia 2: Buscar em qualquer elemento contendo "Supplied Asset Value"
-            for element in soup.find_all(lambda tag: tag.name == "div" and "Supplied Asset Value" in tag.text):
-                # Procurar números com $ no texto
-                text = element.text.strip()
-                value_match = re.search(r'\$[\d,]+', text)
-                if value_match:
-                    value_text = value_match.group()
-                    return float(value_text.replace("$", "").replace(",", ""))
-            
-            # Estratégia 3: Procurar texto com formato específico
-            all_text = soup.get_text()
-            matches = re.findall(r'Supplied Asset Value:?\s*\$?([\d,\.]+)', all_text)
-            if matches:
-                return float(matches[0].replace(",", ""))
-                
-            # Estratégia 4: Buscar em tabelas
-            tables = soup.find_all('table')
-            for table in tables:
-                rows = table.find_all('tr')
-                for row in rows:
-                    cells = row.find_all(['td', 'th'])
-                    for i, cell in enumerate(cells):
-                        if "Supplied Asset Value" in cell.text and i+1 < len(cells):
-                            value_text = cells[i+1].text.strip()
-                            return float(value_text.replace("$", "").replace(",", ""))
-
-            # Método original como fallback
-            value_element = soup.select_one("div.supplied-value")
-            if value_element:
-                return float(value_element.text.strip().replace("$", "").replace(",", ""))
-                
-            print("Não foi possível encontrar Supplied Asset Value, usando valor padrão")
-            return 10000  # Valor fallback
-        except Exception as e:
-            print(f"Erro ao extrair Supplied Asset Value: {e}")
-            return 10000  # Valor fallback
-    
-    def _extract_net_asset_value(self, soup) -> float:
-        try:
-            # Estratégia 1: Buscar por grid-item com label específico
-            elements = soup.find_all("div", {"class": "grid-item"})
-            for element in elements:
-                heading = element.find("div", {"class": "item-label"})
-                if heading and "Net Asset Value" in heading.text:
-                    value_text = element.find("div", {"class": "item-value"}).text.strip()
-                    return float(value_text.replace("$", "").replace(",", ""))
-            
-            # Estratégia 2: Buscar em qualquer elemento contendo "Net Asset Value"
-            for element in soup.find_all(lambda tag: tag.name == "div" and "Net Asset Value" in tag.text):
-                # Procurar números com $ no texto
-                text = element.text.strip()
-                value_match = re.search(r'\$[\d,]+', text)
-                if value_match:
-                    value_text = value_match.group()
-                    return float(value_text.replace("$", "").replace(",", ""))
-            
-            # Estratégia 3: Procurar texto com formato específico
-            all_text = soup.get_text()
-            matches = re.findall(r'Net Asset Value:?\s*\$?([\d,\.]+)', all_text)
-            if matches:
-                return float(matches[0].replace(",", ""))
-                
-            # Estratégia 4: Buscar em tabelas
-            tables = soup.find_all('table')
-            for table in tables:
-                rows = table.find_all('tr')
-                for row in rows:
-                    cells = row.find_all(['td', 'th'])
-                    for i, cell in enumerate(cells):
-                        if "Net Asset Value" in cell.text and i+1 < len(cells):
-                            value_text = cells[i+1].text.strip()
-                            return float(value_text.replace("$", "").replace(",", ""))
-
-            # Método original como fallback
-            value_element = soup.select_one("div.net-asset-value")
-            if value_element:
-                return float(value_element.text.strip().replace("$", "").replace(",", ""))
-            
-            print("Não foi possível encontrar Net Asset Value, usando valor padrão")
-            return 5000  # Valor fallback
-        except Exception as e:
-            print(f"Erro ao extrair Net Asset Value: {e}")
-            return 5000  # Valor fallback
-    
-    def _extract_health_factor(self, soup) -> float:
-        try:
-            # Nova estratégia: Buscar pela classe específica "mantine-Text-root mantine-1r5e5bx"
-            mantine_elements = soup.find_all("span", {"class": "mantine-Text-root mantine-1r5e5bx"})
-            for element in mantine_elements:
-                # Verificar se é o elemento que contém o Health Factor
-                if element.text and re.match(r'^\d+(\.\d+)?$', element.text.strip()):
-                    # Normalmente é um número simples como "2.4"
-                    return float(element.text.strip())
-            
-            # Estratégia 1: Buscar por grid-item com label específico
-            elements = soup.find_all("div", {"class": "grid-item"})
-            for element in elements:
-                heading = element.find("div", {"class": "item-label"})
-                if heading and "Health Factor" in heading.text:
-                    value_text = element.find("div", {"class": "item-value"}).text.strip()
-                    return float(value_text)
-            
-            # Estratégia 2: Buscar em qualquer elemento contendo "Health Factor"
-            for element in soup.find_all(lambda tag: tag.name == "div" and "Health Factor" in tag.text):
-                # Procurar números no texto
-                text = element.text.strip()
-                value_match = re.search(r'[\d\.]+', text)
-                if value_match:
-                    value_text = value_match.group()
-                    return float(value_text)
-            
-            # Estratégia 3: Procurar texto com formato específico
-            all_text = soup.get_text()
-            matches = re.findall(r'Health Factor:?\s*([\d\.]+)', all_text)
-            if matches:
-                return float(matches[0])
-                
-            # Estratégia 4: Buscar em tabelas
-            tables = soup.find_all('table')
-            for table in tables:
-                rows = table.find_all('tr')
-                for row in rows:
-                    cells = row.find_all(['td', 'th'])
-                    for i, cell in enumerate(cells):
-                        if "Health Factor" in cell.text and i+1 < len(cells):
-                            value_text = cells[i+1].text.strip()
-                            return float(value_text)
-
-            # Se ainda não encontrou, tenta localizar um elemento com HF específico
-            hf_elements = soup.find_all(lambda tag: re.search(r'HF\s*[:=]?\s*[\d\.]+', tag.text) if tag.text else False)
-            if hf_elements:
-                for elem in hf_elements:
-                    match = re.search(r'HF\s*[:=]?\s*([\d\.]+)', elem.text)
-                    if match:
-                        return float(match.group(1))
-
-            # Método original como fallback
-            hf_element = soup.select_one("div.health-factor")
-            if hf_element:
-                return float(hf_element.text.strip())
-            
-            print("Não foi possível encontrar Health Factor, usando valor padrão")
-            return 4.5  # Valor mais realista
-        except Exception as e:
-            print(f"Erro ao extrair Health Factor: {e}")
-            return 4.5  # Valor mais realista
     
     def calculate_financial_risk(self, financial_data: Dict[str, Any]) -> Dict[str, Any]:
         """Calcula o score de risco financeiro baseado nos indicadores"""
