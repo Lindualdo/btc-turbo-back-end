@@ -3,6 +3,7 @@
 import logging
 from typing import Dict, List, Any, Tuple
 from app.services.risk_analysis_rsi import calculate_rsi_risk
+from app.services.risk_analysis_divergencia import calculate_divergence_risk
 
 def calculate_technical_risk() -> Dict[str, Any]:
     """
@@ -14,25 +15,21 @@ def calculate_technical_risk() -> Dict[str, Any]:
     # Calcular o componente de risco de RSI (sobrecompra)
     rsi_risk_component = calculate_rsi_risk()
     
+    # Calcular o componente de risco de divergências RSI
+    divergence_risk_component = calculate_divergence_risk()
+    
     # Valores fixos para teste dos outros componentes
     emas_risk = {
         "1W": 0.0,  # +2.0 se fraco
         "1D": 0.0,  # +1.5 se fraco
         "4H": 0.0,  # +1.0 se fraco
-        "intraday": 0.5  # +0.5 se fraco (1H/30M/15M)
-    }
-    
-    rsi_divergence_risk = {
-        "1W": 0.0,  # +2.0 se houver divergência
-        "1D": 0.0,  # +1.5 se houver divergência
-        "4H": 1.0,  # +1.0 se houver divergência
-        "intraday": 0.0  # +0.5 se houver divergência (1H/30M/15M)
+        "intraday": 0.5   # +0.5 se fraco (1H/30M/15M)
     }
     
     # Soma pontuações de todos os indicadores
     total_emas = sum(emas_risk.values())
     total_rsi_overbought = rsi_risk_component["pontuacao"]
-    total_rsi_divergence = sum(rsi_divergence_risk.values())
+    total_rsi_divergence = divergence_risk_component["pontuacao"]
     
     raw_score = total_emas + total_rsi_overbought + total_rsi_divergence
     
@@ -49,10 +46,8 @@ def calculate_technical_risk() -> Dict[str, Any]:
     # Adicionar alertas do RSI
     alerts.extend(rsi_risk_component["alertas"])
     
-    # Alertas para divergências
-    if total_rsi_divergence > 0:
-        if rsi_divergence_risk["4H"] > 0:
-            alerts.append("Divergência IFR no 4H")
+    # Adicionar alertas de divergências
+    alerts.extend(divergence_risk_component["alertas"])
     
     # Componentes da análise técnica
     componentes = [
@@ -64,13 +59,7 @@ def calculate_technical_risk() -> Dict[str, Any]:
             "racional": "Análise qualitativa baseada na orientação e disposição das EMAs"
         },
         rsi_risk_component,
-        {
-            "nome": "Divergências RSI",
-            "pontuacao": round(total_rsi_divergence, 2),
-            "pontuacao_maxima": 5.0,
-            "valores": rsi_divergence_risk,
-            "racional": "Análise qualitativa de divergências entre preço e RSI"
-        }
+        divergence_risk_component
     ]
     
     return {
@@ -121,7 +110,7 @@ def calculate_macro_platform_risk() -> Dict[str, Any]:
     Peso na ponderação estratégica: 0.30
     """
     # Valores fixos para teste inicial
-    macro_risk = 1.0  # Max +6 pontos (MOVE, DXY, VIX, US10Y, Ouro, M2)
+    macro_risk = 1.0  # Max +6 pontos (MOVE, DXG, VIX, US10Y, Ouro, M2)
     platform_risk = 0.0  # Max +5 pontos (Eventos críticos AAVE, ETH, USDC)
     
     raw_score = macro_risk + platform_risk
@@ -239,7 +228,7 @@ def get_risk_classification(score: float) -> Dict[str, str]:
     else:
         return {
             "classificacao": "Risco Extremo",
-            "emoji": "🛑",
+            "emoji": "💑",
             "descricao": "Reduzir máximo possível da exposição, risco sistêmico alto."
         }
 
@@ -266,7 +255,7 @@ def get_risk_executive_summary(normalized_score: float, risk_blocks: List[Dict[s
         main_risks.append("Nenhum risco significativo detectado")
     
     return {
-        "titulo": "📊 Resumo gerencial do risco",
+        "titulo": "🔊 Resumo gerencial do risco",
         "pontuacao": f"Pontuação Final Normalizada: {normalized_score:.2f} / 10",
         "classificacao": f"{classification['emoji']} {classification['classificacao']}",
         "descricao": classification['descricao'],
