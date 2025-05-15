@@ -145,18 +145,60 @@ app.include_router(analise_tecnica_emas.router, prefix="/api/v1")
 - `v1/analise-fundamentos`
 - `v1/analise-riscos` 
 -- `Categoria Risco técnico: (sobrecompra IFR, divergência IFR, risco na força da tendência)`
+-- `Analise de riscos financeiros (HF e Alavancagem)`
 
 ---
 
 ## 🗓️ Próxima implementação
 
-- 🌟 `analise-riscos`: Financeiro Direto
+- 🌟 `analise-riscos`: Estrutural BTC
 
 ---
 
-# 📄 Documentação: Endpoint de Análise de riscos - v1.0.13
+# 📌 v1.0.14 - Analise de Riscos - Riscos Financeiro Direto
 
-> Alterado a saída final da API `analise-riscos` para simplificar a leitura:
+Completei com sucesso a implementação do sistema de análise de risco financeiro. Veja o status atual:
+
+## ✅ Implementações Concluídas:
+
+### 1. Serviço de Risco Financeiro
+- O arquivo `financial_risk_service.py` já estava implementado no repositório.
+- Contém a lógica para scraping dos dados do DeFiSim.
+- Implementa o cálculo de risco baseado em Health Factor e Alavancagem.
+
+### 2. Endpoint de Risco Financeiro
+- O arquivo `risco_financeiro.py` já estava implementado.
+- Fornece análise detalhada dos indicadores financeiros.
+- Retorna os dados de Health Factor e Alavancagem em formato estruturado.
+
+### 3. Endpoint de Análise de Riscos Consolidada
+- Implementei o arquivo `analise_riscos.py`.
+- Integra o risco financeiro com outras categorias de risco.
+- Calcula o score ponderado final e fornece classificação de risco.
+- Identifica automaticamente os componentes de maior risco.
+
+---
+
+## 🔍 Visão Geral da Solução:
+
+### Análise de Risco Financeiro Dedicada:
+- Endpoint `Estrutural BTCEstrutural BTC` fornece análise detalhada.
+- Dados extraídos via web scraping do DeFiSim.
+- Health Factor e Alavancagem calculados com ponderação apropriada.
+
+### Análise de Riscos Consolidada:
+- Endpoint `/analise-riscos` integra todas as categorias de risco.
+- Risco financeiro incorporado ao resultado final.
+- Formato de resposta simplificado e direto para consumo.
+
+### Sistema Robusto:
+- Tratamento de erros para falhas de scraping.
+- Sistema de cache para minimizar requisições externas.
+- Classificações claras com descrições e emojis para facilitar interpretação.
+
+---
+
+## 📊 Exemplo de Resposta de `/analise-riscos`:
 
 ```json
 {
@@ -167,43 +209,15 @@ app.include_router(analise_tecnica_emas.router, prefix="/api/v1")
   },
   "blocos_risco": [
     {
-      "categoria": "Técnico",
-      "score": 3.4,
-      "peso": 0.15,
-      "principais_alertas": [
-        "Falta alinhamento EMAs 4H e Intradays",
-        "Sem alertas de sobrecompra de IFR",
-        "Divergência bearish no RSI detectada no 4h",
-        "Divergência bearish no RSI detectada no 1d",
-        "✅ Estrutura técnica totalmente saudável - tendência forte"
-      ]
-    },
-    {
-      "categoria": "Estrutural BTC",
-      "score": 2.5,
-      "peso": 0.2,
-      "principais_alertas": [
-        "Fundamentos esticados",
-        "Fear & Greed: 87 (ganância)"
-      ]
-    },
-    {
-      "categoria": "Macro & Plataforma",
-      "score": 1.0,
-      "peso": 0.3,
-      "principais_alertas": [
-        "Ouro em alta forte"
-      ]
-    },
-    {
       "categoria": "Financeiro Direto",
-      "score": 10,
+      "score": 8.5,
       "peso": 0.35,
       "principais_alertas": [
         "HF crítico: 1.13",
         "Alavancagem elevada: 3.2x"
       ]
     }
+    // Outras categorias de risco...
   ],
   "resumo": {
     "alerta": "Monitorar componentes com maior peso de risco: Financeiro Direto e Técnico."
