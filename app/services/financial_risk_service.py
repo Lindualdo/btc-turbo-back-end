@@ -65,28 +65,60 @@ class FinancialRiskService:
             }
     
     def _extract_supplied_asset_value(self, soup) -> float:
-        # Implementação específica para extrair o valor da página
-        # Exemplo simplificado:
         try:
+            # Encontrando o valor de "Supplied Asset Value" na página
+            elements = soup.find_all("div", {"class": "grid-item"})
+            for element in elements:
+                heading = element.find("div", {"class": "item-label"})
+                if heading and "Supplied Asset Value" in heading.text:
+                    value_text = element.find("div", {"class": "item-value"}).text.strip()
+                    # Remover $ e , e converter para float
+                    return float(value_text.replace("$", "").replace(",", ""))
+            # Se não encontrou o elemento específico, tenta método alternativo
             value_element = soup.select_one("div.supplied-value")
-            return float(value_element.text.strip().replace("$", "").replace(",", ""))
-        except:
+            if value_element:
+                return float(value_element.text.strip().replace("$", "").replace(",", ""))
+            return 10000  # Valor fallback
+        except Exception as e:
+            print(f"Erro ao extrair Supplied Asset Value: {e}")
             return 10000  # Valor fallback
     
     def _extract_net_asset_value(self, soup) -> float:
-        # Implementação específica para extrair o valor da página
         try:
+            # Encontrando o valor de "Net Asset Value" na página
+            elements = soup.find_all("div", {"class": "grid-item"})
+            for element in elements:
+                heading = element.find("div", {"class": "item-label"})
+                if heading and "Net Asset Value" in heading.text:
+                    value_text = element.find("div", {"class": "item-value"}).text.strip()
+                    # Remover $ e , e converter para float
+                    return float(value_text.replace("$", "").replace(",", ""))
+            # Se não encontrou o elemento específico, tenta método alternativo
             value_element = soup.select_one("div.net-asset-value")
-            return float(value_element.text.strip().replace("$", "").replace(",", ""))
-        except:
+            if value_element:
+                return float(value_element.text.strip().replace("$", "").replace(",", ""))
+            return 5000  # Valor fallback
+        except Exception as e:
+            print(f"Erro ao extrair Net Asset Value: {e}")
             return 5000  # Valor fallback
     
     def _extract_health_factor(self, soup) -> float:
-        # Implementação específica para extrair o valor da página
         try:
+            # Encontrando o valor de "Health Factor" na página
+            elements = soup.find_all("div", {"class": "grid-item"})
+            for element in elements:
+                heading = element.find("div", {"class": "item-label"})
+                if heading and "Health Factor" in heading.text:
+                    value_text = element.find("div", {"class": "item-value"}).text.strip()
+                    # Converter para float
+                    return float(value_text)
+            # Se não encontrou o elemento específico, tenta método alternativo
             hf_element = soup.select_one("div.health-factor")
-            return float(hf_element.text.strip())
-        except:
+            if hf_element:
+                return float(hf_element.text.strip())
+            return 2.0  # Valor fallback
+        except Exception as e:
+            print(f"Erro ao extrair Health Factor: {e}")
             return 2.0  # Valor fallback
     
     def calculate_financial_risk(self, financial_data: Dict[str, Any]) -> Dict[str, Any]:
