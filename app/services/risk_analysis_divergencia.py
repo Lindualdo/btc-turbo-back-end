@@ -34,8 +34,8 @@ def get_divergence_data() -> Dict[str, Dict[str, Any]]:
             # Calcular RSI
             df = calcular_rsi(df, periodo=14)
             
-            # Detectar divergências
-            divergencias[key] = detectar_divergencias(df)
+            # Detectar divergências com janela de extremos reduzida e mais candles para análise
+            divergencias[key] = detectar_divergencias(df, janela_extremos=3, janela_analise=120)
                 
         except Exception:
             # Silently continue if we can't get data for a timeframe
@@ -61,14 +61,29 @@ def calculate_divergence_risk() -> Dict[str, Any]:
         divergencias_formatadas = {}
         for tf, data in divergencias.items():
             if data.get("divergencia_detectada", False):
+                # Adicionar mais informações sobre as divergências detectadas
+                tipo = data.get("tipo_divergencia", "N/A")
+                data_div = data.get("data_divergencia", "N/A")
+                detalhes = data.get("detalhes", {})
+                
+                # Criar um objeto com informações mais detalhadas
                 divergencias_formatadas[tf] = {
-                    "tipo": data.get("tipo_divergencia", "N/A"),
-                    "data": data.get("data_divergencia", "N/A")
+                    "tipo": tipo,
+                    "data": data_div,
+                    "detalhes": detalhes,
+                    "descricao": f"Divergência {tipo} em {tf} ({data_div})"
                 }
+                
+                # Adicionar texto específico para o tipo de divergência
+                if tipo == "bearish":
+                    divergencias_formatadas[tf]["explicacao"] = "Preço formou topo mais alto, enquanto RSI formou topo mais baixo"
+                elif tipo == "bullish":
+                    divergencias_formatadas[tf]["explicacao"] = "Preço formou fundo mais baixo, enquanto RSI formou fundo mais alto"
         
         return {
             "componente": "Divergências RSI",
             "divergencias_detectadas": divergencias_formatadas,
+            "timeframes_com_divergencia": list(divergencias_formatadas.keys()),
             "pontuacao": analise["pontuacao"],
             "pontuacao_maxima": analise["pontuacao_maxima"],
             "alertas": analise["alertas"],
@@ -79,6 +94,7 @@ def calculate_divergence_risk() -> Dict[str, Any]:
         return {
             "componente": "Divergências RSI",
             "divergencias_detectadas": {},
+            "timeframes_com_divergencia": [],
             "pontuacao": 0.0,
             "pontuacao_maxima": 5.0,
             "alertas": ["Erro ao calcular risco de divergências RSI: " + str(e)],
