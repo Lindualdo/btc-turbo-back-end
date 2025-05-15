@@ -3,7 +3,7 @@ import numpy as np
 from typing import Dict, Any, List, Tuple, Optional
 from app.utils.rsi_utils import calcular_rsi
 
-def identificar_pontos_extremos(serie: pd.Series, janela: int = 5) -> pd.Series:
+def identificar_pontos_extremos(serie: pd.Series, janela: int = 3) -> pd.Series:
     """
     Identifica pontos de máximos e mínimos locais em uma série
     
@@ -27,7 +27,7 @@ def identificar_pontos_extremos(serie: pd.Series, janela: int = 5) -> pd.Series:
             
     return extremos
 
-def detectar_divergencias(df: pd.DataFrame, janela_extremos: int = 5, janela_analise: int = 60) -> Dict[str, Any]:
+def detectar_divergencias(df: pd.DataFrame, janela_extremos: int = 3, janela_analise: int = 120) -> Dict[str, Any]:
     """
     Detecta divergências entre preço e RSI
     
@@ -50,59 +50,99 @@ def detectar_divergencias(df: pd.DataFrame, janela_extremos: int = 5, janela_ana
     df_analise['extremos_preco'] = identificar_pontos_extremos(df_analise['close'], janela_extremos)
     df_analise['extremos_rsi'] = identificar_pontos_extremos(df_analise['RSI'], janela_extremos)
     
-    # Filtrar apenas pontos com extremos
-    df_maximos = df_analise[df_analise['extremos_preco'] == 1].copy()
-    df_minimos = df_analise[df_analise['extremos_preco'] == -1].copy()
+    # Obter pontos de extremos locais significativos 
+    df_topos = df_analise[df_analise['extremos_preco'] == 1].copy()
+    df_fundos = df_analise[df_analise['extremos_preco'] == -1].copy()
     
-    # Detectar divergência de alta (preço fazendo mínimos mais baixos, RSI fazendo mínimos mais altos)
+    # Verificar se temos pelo menos dois pontos extremos para comparar
     divergencia_alta = False
-    if len(df_minimos) >= 2:
-        # Comparar os dois últimos mínimos
-        ultimos_minimos = df_minimos.tail(2)
-        if ultimos_minimos.iloc[0]['close'] > ultimos_minimos.iloc[1]['close'] and ultimos_minimos.iloc[0]['RSI'] < ultimos_minimos.iloc[1]['RSI']:
-            divergencia_alta = True
-            
-    # Detectar divergência de baixa (preço fazendo máximos mais altos, RSI fazendo máximos mais baixos)
     divergencia_baixa = False
-    if len(df_maximos) >= 2:
-        # Comparar os dois últimos máximos
-        ultimos_maximos = df_maximos.tail(2)
-        if ultimos_maximos.iloc[0]['close'] < ultimos_maximos.iloc[1]['close'] and ultimos_maximos.iloc[0]['RSI'] > ultimos_maximos.iloc[1]['RSI']:
-            divergencia_baixa = True
+    dados_divergencia_alta = None
+    dados_divergencia_baixa = None
     
-    # Verificar a divergência mais recente
-    divergencia = None
+    # Tentar encontrar divergência bearish (baixa) - topos
+    if len(df_topos) >= 2:
+        # Ordenar por data crescente e pegar os dois últimos
+        df_topos_recentes = df_topos.sort_index().tail(2)
+        
+        # Acessar os valores de preço e RSI
+        preco1 = df_topos_recentes.iloc[0]['close']
+        preco2 = df_topos_recentes.iloc[1]['close']
+        rsi1 = df_topos_recentes.iloc[0]['RSI']
+        rsi2 = df_topos_recentes.iloc[1]['RSI']
+        
+        # Verificar divergência bearish: preço forma topo MAIS ALTO, RSI forma topo MAIS BAIXO
+        if preco2 > preco1 and rsi2 < rsi1:
+            divergencia_baixa = True
+            dados_divergencia_baixa = {
+                'data_topo1': df_topos_recentes.index[0].strftime("%Y-%m-%d %H:%M"),
+                'preco_topo1': float(preco1),
+                'rsi_topo1': float(rsi1),
+                'data_topo2': df_topos_recentes.index[1].strftime("%Y-%m-%d %H:%M"),
+                'preco_topo2': float(preco2),
+                'rsi_topo2': float(rsi2),
+                'delta_preco': f'{((preco2 - preco1) / preco1 * 100):.2f}%',
+                'delta_rsi': f'{((rsi2 - rsi1) / rsi1 * 100):.2f}%'
+            }
+    
+    # Tentar encontrar divergência bullish (alta) - fundos
+    if len(df_fundos) >= 2:
+        # Ordenar por data crescente e pegar os dois últimos
+        df_fundos_recentes = df_fundos.sort_index().tail(2)
+        
+        # Acessar os valores de preço e RSI
+        preco1 = df_fundos_recentes.iloc[0]['close']
+        preco2 = df_fundos_recentes.iloc[1]['close'] 
+        rsi1 = df_fundos_recentes.iloc[0]['RSI']
+        rsi2 = df_fundos_recentes.iloc[1]['RSI']
+        
+        # Verificar divergência bullish: preço forma fundo MAIS BAIXO, RSI forma fundo MAIS ALTO
+        if preco2 < preco1 and rsi2 > rsi1:
+            divergencia_alta = True
+            dados_divergencia_alta = {
+                'data_fundo1': df_fundos_recentes.index[0].strftime("%Y-%m-%d %H:%M"),
+                'preco_fundo1': float(preco1),
+                'rsi_fundo1': float(rsi1),
+                'data_fundo2': df_fundos_recentes.index[1].strftime("%Y-%m-%d %H:%M"),
+                'preco_fundo2': float(preco2),
+                'rsi_fundo2': float(rsi2),
+                'delta_preco': f'{((preco2 - preco1) / preco1 * 100):.2f}%',
+                'delta_rsi': f'{((rsi2 - rsi1) / rsi1 * 100):.2f}%'
+            }
+    
+    # Determinar qual divergência é a mais recente
     tipo_divergencia = None
     data_divergencia = None
+    detalhes_divergencia = None
     
-    if divergencia_alta or divergencia_baixa:
-        if divergencia_alta and divergencia_baixa:
-            # Se ambas existem, pegar a mais recente
-            ultimo_minimo = df_minimos.index[-1] if len(df_minimos) > 0 else pd.Timestamp.min
-            ultimo_maximo = df_maximos.index[-1] if len(df_maximos) > 0 else pd.Timestamp.min
-            
-            if ultimo_minimo > ultimo_maximo:
-                divergencia = "alta"
-                tipo_divergencia = "bullish"
-                data_divergencia = ultimo_minimo
-            else:
-                divergencia = "baixa"
-                tipo_divergencia = "bearish"
-                data_divergencia = ultimo_maximo
-        elif divergencia_alta:
-            divergencia = "alta"
+    if divergencia_alta and divergencia_baixa:
+        # Comparar as datas do último ponto de cada divergência
+        data_alta = pd.to_datetime(dados_divergencia_alta['data_fundo2'])
+        data_baixa = pd.to_datetime(dados_divergencia_baixa['data_topo2'])
+        
+        if data_alta > data_baixa:
             tipo_divergencia = "bullish"
-            data_divergencia = df_minimos.index[-1] if len(df_minimos) > 0 else None
+            data_divergencia = dados_divergencia_alta['data_fundo2']
+            detalhes_divergencia = dados_divergencia_alta
         else:
-            divergencia = "baixa"
             tipo_divergencia = "bearish"
-            data_divergencia = df_maximos.index[-1] if len(df_maximos) > 0 else None
+            data_divergencia = dados_divergencia_baixa['data_topo2']
+            detalhes_divergencia = dados_divergencia_baixa
+    elif divergencia_alta:
+        tipo_divergencia = "bullish"
+        data_divergencia = dados_divergencia_alta['data_fundo2']
+        detalhes_divergencia = dados_divergencia_alta
+    elif divergencia_baixa:
+        tipo_divergencia = "bearish"
+        data_divergencia = dados_divergencia_baixa['data_topo2']
+        detalhes_divergencia = dados_divergencia_baixa
     
     # Construir resultado
     resultado = {
-        "divergencia_detectada": divergencia is not None,
+        "divergencia_detectada": divergencia_alta or divergencia_baixa,
         "tipo_divergencia": tipo_divergencia,
-        "data_divergencia": data_divergencia.strftime("%Y-%m-%d %H:%M") if data_divergencia else None,
+        "data_divergencia": data_divergencia,
+        "detalhes": detalhes_divergencia,
         "divergencia_alta": divergencia_alta,
         "divergencia_baixa": divergencia_baixa,
         "candles_analisados": len(df_analise)
@@ -157,13 +197,14 @@ def analisar_divergencias_rsi_risco(divergencias: Dict[str, Dict[str, Any]]) -> 
             "divergencia_detectada": analise.get("divergencia_detectada"),
             "tipo_divergencia": tipo,
             "data_divergencia": analise.get("data_divergencia"),
-            "pontuacao": peso if tipo == "bearish" else 0,
+            "detalhes": analise.get("detalhes"),
+            "pontuacao": round(peso if tipo == "bearish" else 0, 2),
             "peso": peso
         }
     
     # Se não há alertas, criar um padrão
     if not alertas:
-        alertas = ["Sem divergências RSI detectadas"]
+        alertas = ["Sem divergências RSI bearish detectadas"]
     
     return {
         "pontuacao": round(pontuacao, 2),
@@ -186,15 +227,15 @@ def consolidar_analise_divergencias(divergencias: Dict[str, Dict[str, Any]]) -> 
     analise = analisar_divergencias_rsi_risco(divergencias)
     
     # Listar timeframes com divergências
-    timeframes_divergentes = [
-        f"{tf} ({data['tipo_divergencia']})" 
-        for tf, data in analise["analises"].items()
-    ]
+    timeframes_divergentes = []
+    for tf, data in analise.get("analises", {}).items():
+        if data.get("divergencia_detectada", False):
+            tipo = data.get("tipo_divergencia", "")
+            timeframes_divergentes.append(f"{tf} ({tipo})")
     
-    # Calcular a pontuação média normalizada (0-10)
+    # Calcular a pontuação normalizada (0-10)
     normalized_score = 0
-    
-    if analise["pontuacao_maxima"] > 0:
+    if analise.get("pontuacao_maxima", 0) > 0:
         normalized_score = analise["pontuacao"] / analise["pontuacao_maxima"] * 10
     
     return {
@@ -202,6 +243,6 @@ def consolidar_analise_divergencias(divergencias: Dict[str, Dict[str, Any]]) -> 
         "pontuacao_maxima": analise["pontuacao_maxima"],
         "pontuacao_normalizada": round(normalized_score, 1),
         "timeframes_com_divergencia": timeframes_divergentes if timeframes_divergentes else ["Nenhum"],
-        "alertas": analise["alertas"],
-        "racional": analise["racional"]
+        "alertas": analise.get("alertas", []),
+        "racional": analise.get("racional", "")
     }
