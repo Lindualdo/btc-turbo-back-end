@@ -4,9 +4,9 @@ import logging
 from fastapi import FastAPI, Request, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from app.config import get_settings, Settings
-from app.routers import analise_ciclos, analise_tecnica_emas, analise_fundamentos, analise_riscos
+from app.routers import analise_ciclos, analise_tecnica_emas, analise_fundamentos, analise_riscos, analise_tecnica_rsi
 
-# ⌅ Ativar logs nível INFO
+# ⋅ Ativar logs nível INFO
 logging.basicConfig(level=logging.INFO)
 
 # Carrega configurações globais
@@ -47,3 +47,4 @@ app.include_router(analise_tecnica_emas.router, prefix="/api/v1")
 app.include_router(analise_ciclos.router, prefix="/api/v1")
 app.include_router(analise_fundamentos.router, prefix="/api/v1")
 app.include_router(analise_riscos.router, prefix="/api/v1")
+app.include_router(analise_tecnica_rsi.router, prefix="/api/v1")
