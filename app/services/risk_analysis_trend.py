@@ -14,7 +14,7 @@ def calculate_trend_risk() -> Dict[str, Any]:
     """
     try:
         settings = get_settings()
-        base_url = f"http://localhost:{settings.port}/api/v1"
+        base_url = f"http://localhost:{settings.PORT}/api/v1"
         
         # Consultar o endpoint de análise de EMAs
         response = requests.get(f"{base_url}/analise-tecnica-emas")
@@ -85,7 +85,7 @@ def calculate_trend_risk() -> Dict[str, Any]:
             "racional": ", ".join(racional),
             "detalhes": {
                 "score_forca_original": score_emas,
-                "metodologia": "Inversão do score de força (10 - score_forca)"
+                "metodologia": "Inversão do score de força (10 - score_força)"
             }
         }
     except Exception as e:
