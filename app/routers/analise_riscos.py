@@ -14,12 +14,18 @@ def analise_riscos():
     """
     Retorna a análise de risco consolidada para operações de hold alavancado de Bitcoin:
     
-    - Risco Técnico (EMAs, IFR, Divergência IFR)
-    - Risco Estrutural BTC (Model Variance, MVRV, VDD, Fear & Greed)
-    - Risco Macroeconômico e Plataforma (MOVE, DXY, VIX, US10Y, Ouro, M2, Eventos Críticos)
-    - Risco Financeiro Direto (Health Factor, Alavancagem, WBTC Supply/Paridade)
+    A resposta inclui:
+    - Um score final de risco normalizado (0-10)
+    - Classificação qualitativa do risco atual
+    - Blocos de risco por categoria (Técnico, Estrutural, Macro, Financeiro)
+    - Principais alertas para cada categoria
+    - Um resumo executivo com recomendações
     
-    A pontuação final é normalizada em escala 0-10, com classificação de risco.
+    Cada bloco de risco informa:
+    - Categoria
+    - Score de risco
+    - Peso na análise final
+    - Alertas principais identificados
     """
     try:
         return get_consolidated_risk_analysis()
