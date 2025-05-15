@@ -1,5 +1,6 @@
 import logging
 import requests
+import os
 from typing import Dict, Any
 from app.config import get_settings
 
@@ -14,7 +15,16 @@ def calculate_trend_risk() -> Dict[str, Any]:
     """
     try:
         settings = get_settings()
-        base_url = f"http://localhost:{settings.PORT}/api/v1"
+        
+        # Detectar ambiente (Railway vs. local)
+        is_production = os.environ.get("RAILWAY_ENVIRONMENT") == "production"
+        
+        if is_production:
+            # Em produção (Railway), usar URL externa
+            base_url = "https://btc-turbo-api-production.up.railway.app/api/v1"
+        else:
+            # Em desenvolvimento local, usar localhost
+            base_url = f"http://localhost:{settings.PORT}/api/v1"
         
         # Consultar o endpoint de análise de EMAs
         response = requests.get(f"{base_url}/analise-tecnica-emas")
