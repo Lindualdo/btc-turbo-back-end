@@ -1,4 +1,6 @@
+# app/services/risk_analysis.py
 import logging
+import os
 from typing import Dict, List, Any, Tuple
 from app.services.risk_analysis_rsi import calculate_rsi_risk
 from app.services.risk_analysis_divergencia import calculate_divergence_risk
@@ -89,14 +91,10 @@ def calculate_technical_risk() -> Dict[str, Any]:
     }
     
     return {
-        "categoria": "Risco Técnico",
-        "pontuacao": round(raw_score, 1),
-        "max_pontuacao": 25.0,  # Atualizado para incluir o componente de tendência (10 pts)
+        "categoria": "Técnico",
+        "score": round(raw_score, 1),
         "peso": 0.15,
-        "pontuacao_ponderada": round(raw_score * 0.15, 2),
-        "alertas": alerts if alerts else ["Sem alertas técnicos"],
-        "componentes": componentes,
-        "indicadores_tecnicos": indicadores_tecnicos  # Novo campo consolidado
+        "principais_alertas": alerts if alerts else ["Sem alertas técnicos"]
     }
 
 def calculate_btc_structural_risk() -> Dict[str, Any]:
@@ -118,15 +116,13 @@ def calculate_btc_structural_risk() -> Dict[str, Any]:
         alerts.append("Fundamentos esticados")
     
     if fear_greed_risk > 0:
-        alerts.append("Fear & Greed em território de ganância (87)")
+        alerts.append("Fear & Greed: 87 (ganância)")
     
     return {
-        "categoria": "Risco Estrutural BTC",
-        "pontuacao": round(raw_score, 1),
-        "max_pontuacao": 6.0,
+        "categoria": "Estrutural BTC",
+        "score": round(raw_score, 1),
         "peso": 0.20,
-        "pontuacao_ponderada": round(raw_score * 0.20, 2),
-        "alertas": alerts if alerts else ["Fundamentos normais, Fear & Greed neutro"]
+        "principais_alertas": alerts if alerts else ["Fundamentos normais, Fear & Greed neutro"]
     }
 
 def calculate_macro_platform_risk() -> Dict[str, Any]:
@@ -151,12 +147,10 @@ def calculate_macro_platform_risk() -> Dict[str, Any]:
         alerts.append("Risco em plataforma detectado")
     
     return {
-        "categoria": "Risco Macro e Plataforma",
-        "pontuacao": round(raw_score, 1),
-        "max_pontuacao": 11.0,
+        "categoria": "Macro & Plataforma",
+        "score": round(raw_score, 1),
         "peso": 0.30,
-        "pontuacao_ponderada": round(raw_score * 0.30, 2),
-        "alertas": alerts if alerts else ["Indicadores macro e plataformas normais"]
+        "principais_alertas": alerts if alerts else ["Indicadores macro e plataformas normais"]
     }
 
 def calculate_direct_financial_risk() -> Dict[str, Any]:
@@ -210,12 +204,10 @@ def calculate_direct_financial_risk() -> Dict[str, Any]:
         alerts.append("Paridade WBTC-BTC descolada")
     
     return {
-        "categoria": "Risco Financeiro Direto",
-        "pontuacao": round(raw_score, 1),
-        "max_pontuacao": 21.0,
+        "categoria": "Financeiro Direto",
+        "score": round(raw_score, 1),
         "peso": 0.35,
-        "pontuacao_ponderada": round(raw_score * 0.35, 2),
-        "alertas": alerts if alerts else ["Métricas financeiras saudáveis"]
+        "principais_alertas": alerts if alerts else ["Métricas financeiras saudáveis"]
     }
 
 def get_risk_classification(score: float) -> Dict[str, str]:
@@ -226,69 +218,33 @@ def get_risk_classification(score: float) -> Dict[str, str]:
         score: Pontuação normalizada entre 0 e 10
         
     Returns:
-        Dicionário com classificação, emoji e descrição
+        Dicionário com classificação e descrição
     """
     if score < 2:
         return {
-            "classificacao": "Risco Muito Baixo",
-            "emoji": "✅",
+            "classificacao": "✅ Risco Muito Baixo",
             "descricao": "Posição extremamente segura, operar normalmente."
         }
     elif score < 4:
         return {
-            "classificacao": "Risco Controlado",
-            "emoji": "✅",
+            "classificacao": "✅ Risco Controlado",
             "descricao": "Risco administrável, monitorar regularmente."
         }
     elif score < 6:
         return {
-            "classificacao": "Risco Elevado",
-            "emoji": "⚠️",
+            "classificacao": "⚠️ Risco Elevado",
             "descricao": "Atenção redobrada, considerar redução de exposição."
         }
     elif score < 8:
         return {
-            "classificacao": "Risco Crítico",
-            "emoji": "🔴",
+            "classificacao": "🔴 Risco Crítico",
             "descricao": "Reduzir exposição imediatamente, monitorar 24/7."
         }
     else:
         return {
-            "classificacao": "Risco Extremo",
-            "emoji": "💀",
+            "classificacao": "🚨 Risco Extremo",
             "descricao": "Reduzir máximo possível da exposição, risco sistêmico alto."
         }
-
-def get_risk_executive_summary(normalized_score: float, risk_blocks: List[Dict[str, Any]]) -> Dict[str, Any]:
-    """
-    Gera um resumo executivo baseado na pontuação de risco normalizada
-    
-    Args:
-        normalized_score: Pontuação normalizada (0-10)
-        risk_blocks: Lista com blocos de risco calculados
-        
-    Returns:
-        Dicionário contendo o resumo executivo
-    """
-    classification = get_risk_classification(normalized_score)
-    
-    # Identificar principais riscos
-    main_risks = []
-    for block in risk_blocks:
-        if block["pontuacao"] > 0 and len(block["alertas"]) > 0 and block["alertas"][0] != f"Sem alertas {block['categoria'].lower()}":
-            main_risks.append(f"{block['categoria']} ({', '.join(block['alertas'])})")
-    
-    if not main_risks:
-        main_risks.append("Nenhum risco significativo detectado")
-    
-    return {
-        "titulo": "📝 Resumo gerencial do risco",
-        "pontuacao": f"Pontuação Final Normalizada: {normalized_score:.2f} / 10",
-        "classificacao": f"{classification['emoji']} {classification['classificacao']}",
-        "descricao": classification['descricao'],
-        "principais_riscos": main_risks,
-        "observacao_estrategica": "Monitorar especialmente os componentes de maior peso na análise de risco."
-    }
 
 def get_consolidated_risk_analysis() -> Dict[str, Any]:
     """
@@ -308,19 +264,34 @@ def get_consolidated_risk_analysis() -> Dict[str, Any]:
     risk_blocks = [technical_risk, structural_risk, macro_platform_risk, financial_risk]
     
     # Calcular pontuação consolidada (soma dos valores ponderados)
-    consolidated_score = sum(block["pontuacao_ponderada"] for block in risk_blocks)
+    consolidated_score = sum(block["score"] * block["peso"] for block in risk_blocks)
     
     # Normalizar para escala 0-10 (máximo teórico é 14.1)
     theoretical_max = 14.1
     normalized_score = round((consolidated_score / theoretical_max) * 10, 2)
     
-    # Obter resumo executivo
-    executive_summary = get_risk_executive_summary(normalized_score, risk_blocks)
+    # Obter classificação de risco
+    risk_classification = get_risk_classification(normalized_score)
     
-    # Montar resultado completo
+    # Identificar componentes de maior peso para o resumo
+    high_risk_components = sorted(
+        [(b["categoria"], b["score"] * b["peso"]) for b in risk_blocks],
+        key=lambda x: x[1],
+        reverse=True
+    )
+    
+    top_risk_components = [comp[0] for comp in high_risk_components[:2]]
+    alert_message = f"Monitorar componentes com maior peso de risco: {' e '.join(top_risk_components)}."
+    
+    # Retornar no formato simplificado solicitado
     return {
+        "risco_final": {
+            "score": normalized_score,
+            "classificacao": risk_classification["classificacao"],
+            "descricao": risk_classification["descricao"]
+        },
         "blocos_risco": risk_blocks,
-        "pontuacao_consolidada": consolidated_score,
-        "pontuacao_normalizada": normalized_score,
-        "resumo_executivo": executive_summary
+        "resumo": {
+            "alerta": alert_message
+        }
     }
