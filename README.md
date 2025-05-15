@@ -1,4 +1,4 @@
-# 🚀 BTC Turbo API – v1.0.9
+# 🚀 BTC Turbo API – v1.0.10
 
 API em FastAPI para cálculo de indicadores técnicos e análise de ciclos do BTC, com deploy Dockerizado via Railway.
 
@@ -8,7 +8,7 @@ API em FastAPI para cálculo de indicadores técnicos e análise de ciclos do BT
 
 ### 🚀 Cliclos BTC
 ```
-GET /api/v1/analise-ciclos
+GET /api/v1/analise-ciclos  
 ```
 
 ### 🛈 EMAs BTC
