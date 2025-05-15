@@ -6,8 +6,8 @@ from typing import Dict, Any
 router = APIRouter()
 
 @router.get("/analise-tendencia-risco", 
-            summary="Análise de Risco de Tendência", 
-            tags=["Análise Técnica"])
+              summary="Análise de Risco de Tendência", 
+              tags=["Análise Técnica"])
 def get_trend_risk_analysis(settings: Settings = Depends(get_settings)) -> Dict[str, Any]:
     """
     Retorna análise de risco baseada na força da tendência.
@@ -27,6 +27,9 @@ def get_trend_risk_analysis(settings: Settings = Depends(get_settings)) -> Dict[
         
         # Adicionar explicação da classificação de risco baseada na pontuação
         risk_level = result.get("pontuacao", 0)
+        
+        # Incluindo o score de força original da API analise-tecnica-emas
+        result["score_forca_tendencia"] = result.get("detalhes", {}).get("score_forca_original", 0)
         
         risk_classification = {
             "risco": round(risk_level, 1),
