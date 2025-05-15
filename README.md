@@ -154,8 +154,6 @@ app.include_router(analise_tecnica_emas.router, prefix="/api/v1")
 
 ---
 
-## 🗓️ Versão atual 1.0.9 - 15/05/2025 08:48
-
 ```text
 
 ### 📝 APIs já concluídas e funcionando 100% estáveis
@@ -163,55 +161,64 @@ app.include_router(analise_tecnica_emas.router, prefix="/api/v1")
 - v1/analise-tecnica
 - v1/analise-cliclos
 - v1/analise-fundamentos
-- v1/analise-riscos (dados mokados)
+- v1/analise-riscos (ifr, divergencia ifr)
 
 ## 🗓️ Proxima implementação
 
   - 🌟 **analise-riscos**
-  - implementar a coleta e calculo dos riscos
+  - força da tendencia
+
   
+# v 1.0.10 - Implementação do Indicador de Divergências RSI - 15/05/25 10:11
 
-📝 Melhorias implementadas na versão
+## Objetivos Alcançados
 
-📁 Novos arquivos criados:
-app/utils/rsi_utils.py
-→ Funções utilitárias para cálculo e análise do RSI
+- Criação de sistema para detectar divergências entre RSI e preço de Bitcoin  
+- Integração com análise de riscos no BTC Turbo
 
-app/routers/analise_tecnica_rsi.py
-→ Endpoint público para consulta de RSI em todos os timeframes
+---
 
-app/services/risk_analysis_rsi.py
-→ Serviço específico para cálculo de risco baseado em RSI
+## Arquivos Implementados
 
-🧠 Atualização no módulo principal de análise de riscos:
-Integração do cálculo real de RSI na função calculate_technical_risk()
+- `app/utils/divergence_utils.py` – Funções para detectar e analisar divergências  
+- `app/routers/analise_divergencia_rsi.py` – Endpoint para análise isolada de divergências  
+- `app/services/risk_analysis_divergencia.py` – Serviço para análise de risco de divergências  
 
-Inclusão de mais detalhes na resposta, exibindo os componentes de risco técnico
+---
 
-🌐 Registro do novo endpoint:
-Atualização do arquivo app/main.py para incluir o router do RSI
+## Algoritmo de Detecção
 
-✅ Funcionalidades disponíveis:
-Cálculo do RSI em múltiplos timeframes
+- Detecta topos e fundos em gráficos de preço e RSI  
+- **Divergência Bullish:** preço faz fundo mais baixo + RSI faz fundo mais alto  
+- **Divergência Bearish:** preço faz topo mais alto + RSI faz topo mais baixo  
 
-Avaliação de risco com base nos valores reais de RSI
+---
 
-Geração de alertas quando o RSI indicar sobrecompra
+## Funcionalidades
 
-Inclusão de um racional explicativo para cada ponto da análise
+- Análise multi-timeframe (`15m`, `30m`, `1h`, `4h`, `1d`, `1w`)  
+- Ponderação de risco por timeframe (maior peso para timeframes maiores)  
+- Cálculo de pontuação de risco com base em divergências bearish  
+- Fornecimento de detalhes sobre divergências (datas, valores, deltas)
 
-🔍 Teste agora:
-Ver valores atuais de RSI:
-GET /api/v1/analise-tecnica-rsi
+---
 
-Ver análise de risco completa (com RSI real):
-GET /api/v1/analise-riscos
+## Endpoints
 
-📌 Próximos passos
-Implementar os demais componentes da análise técnica:
+- `GET /api/v1/analise-divergencia-rsi` – Análise completa de divergências  
+- `GET /api/v1/analise-riscos` – Análise integrada de risco (agora inclui divergências)  
 
-Médias Móveis (EMAs)
+---
 
-Divergências
+## Tecnologias Utilizadas
 
-Seguir o mesmo padrão modular e reutilizável adotado no RSI
+- `Pandas` – manipulação de dados e séries temporais  
+- `TradingView API` – obtenção de dados de mercado  
+- `FastAPI` – exposição de endpoints HTTP  
+- Métodos de análise técnica para cálculo de RSI (14 períodos)
+
+---
+
+## Conclusão
+
+O sistema agora detecta automaticamente divergências entre RSI e preço, fornecendo alertas e quantificando o risco associado a essas divergências em vários timeframes.
