@@ -155,8 +155,8 @@ class FinancialRiskService:
             
             # Log detalhado para diagnóstico
             logger.info(f"Dados financeiros calculados: Collateral=${total_collateral_usd:.2f}, "
-                       f"Debt=${total_debt_usd:.2f}, NAV=${net_asset_value_usd:.2f}, "
-                       f"Leverage={leverage:.2f}x, HF={health_factor}")
+                     f"Debt=${total_debt_usd:.2f}, NAV=${net_asset_value_usd:.2f}, "
+                     f"Leverage={leverage:.2f}x, HF={health_factor}")
             
             # Preparar resposta
             result = {
@@ -185,7 +185,7 @@ class FinancialRiskService:
             self.cache = result
             self.last_fetch = current_time
             
-            logger.info(f"Dados financeiros obtidos via Web3: HF={health_factor}, NAV=${net_asset_value_usd:.2f}, Leverage={leverage:.2f}x")
+            logger.info(f"Dados obtidos via Web3: HF={health_factor}, Collateral=${total_collateral_usd:.2f}, Debt=${total_debt_usd:.2f}, NAV=${net_asset_value_usd:.2f}, Leverage={leverage}")
             return result
             
         except Exception as e:
@@ -253,8 +253,19 @@ class FinancialRiskService:
     def calculate_financial_risk(self, financial_data: Dict[str, Any]) -> Dict[str, Any]:
         """Calcula o score de risco financeiro baseado nos indicadores"""
         
+        # Log para debug do objeto financial_data completo
+        logger.info(f"financial_data recebido em calculate_financial_risk: {financial_data}")
+        
         hf = financial_data.get("health_factor", 0)
-        leverage = financial_data.get("alavancagem", 1.0)
+        
+        # Log para debug da chave específica que estamos buscando
+        logger.info(f"Chaves disponíveis em financial_data: {financial_data.keys()}")
+        logger.info(f"Valor de alavancagem no objeto: {financial_data.get('alavancagem', 'CHAVE NÃO ENCONTRADA')}")
+        
+        leverage = financial_data.get("alavancagem", 0)
+        
+        # Log para debug do valor de alavancagem recebido
+        logger.info(f"Valor de alavancagem recebido no calculate_financial_risk: {leverage}")
         
         # Verificar se é infinito ou NaN
         if hf == float('inf') or hf == float('nan') or hf <= 0:
