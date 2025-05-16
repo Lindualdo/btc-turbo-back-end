@@ -6,3 +6,4 @@ beautifulsoup4
 requests
 notion-client
 pydantic-settings>=2.0.0
+web3
