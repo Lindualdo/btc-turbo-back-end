@@ -170,8 +170,8 @@ class FinancialRiskService:
             
             # Constrói o resultado
             result = {
-                "health_factor": health_factor,
-                "alavancagem": round(leverage, 2),
+                "health_factor": round(health_factor, 2),
+                "leverage": round(leverage, 2),
                 "supplied_asset_value": supplied_asset_value,
                 "net_asset_value": nav,
                 "total_collateral_usd": total_collateral,
@@ -590,8 +590,8 @@ class FinancialRiskService:
         """Calcula o score de risco financeiro baseado nos indicadores"""
         
         hf = financial_data.get("health_factor", 0)
-        #leverage = financial_data.get("leverage", 0)
-        leverage = 1.18 # Valor fixo para teste, deve ser calculado a partir de dados reais
+        leverage = financial_data.get("leverage", 0)
+       
         # Verificar se é infinito ou NaN
         if hf == float('inf') or hf == float('nan') or hf <= 0:
             hf_display = "∞"  # Para apresentação
