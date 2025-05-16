@@ -3,6 +3,7 @@ import datetime
 import logging
 from typing import Dict, Any, Optional
 import os
+import json
 
 # Configura o logger
 logging.basicConfig(level=logging.INFO)
@@ -45,6 +46,7 @@ class FinancialRiskService:
             query = """
             {
               user(id: "%s") {
+                id
                 healthFactor
                 totalCollateralUSD
                 totalDebtUSD
@@ -62,6 +64,8 @@ class FinancialRiskService:
             }
             """ % self.wallet_address
             
+            logger.debug(f"Query GraphQL: {query}")
+            
             # Enviar requisição POST
             response = requests.post(
                 self.subgraph_url,
@@ -70,48 +74,122 @@ class FinancialRiskService:
             
             # Verificar resposta
             if response.status_code != 200:
-                logger.error(f"Erro na API: código {response.status_code}, resposta: {response.text}")
+                logger.error(f"API retornou código de status {response.status_code}: {response.text}")
                 raise Exception(f"API retornou código de status {response.status_code}")
             
             data = response.json()
-            logger.debug(f"Resposta da API: {data}")
+            logger.debug(f"Resposta da API: {json.dumps(data, indent=2)}")
             
-            if data.get('data', {}).get('user') is None:
-                logger.warning(f"Posição não encontrada para o endereço da carteira: {self.wallet_address}")
+            if data.get('errors'):
+                logger.error(f"Erro na consulta GraphQL: {data.get('errors')}")
                 return {
                     "health_factor": 0,
                     "alavancagem": 0,
                     "supplied_asset_value": 0,
                     "net_asset_value": 0,
-                    "error": f"Posição não encontrada para carteira {self.wallet_address}",
+                    "error": f"Erro na consulta GraphQL: {data.get('errors')}",
                     "timestamp": current_time.isoformat()
                 }
             
+            if data.get('data', {}).get('user') is None:
+                # O endereço pode estar em um formato diferente, vamos tentar com '0x' em minúsculo
+                if self.wallet_address.startswith("0X"):
+                    corrected_address = "0x" + self.wallet_address[2:]
+                    logger.info(f"Tentando novamente com endereço corrigido: {corrected_address}")
+                    self.wallet_address = corrected_address
+                    return await self.fetch_financial_data()
+                
+                logger.warning(f"Posição não encontrada para o endereço da carteira: {self.wallet_address}")
+                
+                # Tentando verificar se o endereço existe com outra consulta
+                verify_query = """
+                {
+                  users(where: {id: "%s"}) {
+                    id
+                  }
+                }
+                """ % self.wallet_address
+                
+                verify_response = requests.post(
+                    self.subgraph_url,
+                    json={'query': verify_query}
+                )
+                
+                verify_data = verify_response.json()
+                logger.debug(f"Verificação de endereço: {json.dumps(verify_data, indent=2)}")
+                
+                # Para fins de depuração, vamos verificar uma lista de usuários recentes
+                sample_query = """
+                {
+                  users(first: 5) {
+                    id
+                  }
+                }
+                """
+                
+                sample_response = requests.post(
+                    self.subgraph_url,
+                    json={'query': sample_query}
+                )
+                
+                sample_data = sample_response.json()
+                logger.info(f"Amostra de usuários recentes: {json.dumps(sample_data.get('data', {}).get('users', []), indent=2)}")
+                
+                return {
+                    "health_factor": 0,
+                    "alavancagem": 0,
+                    "supplied_asset_value": 0,
+                    "net_asset_value": 0,
+                    "error": "Posição não encontrada",
+                    "timestamp": current_time.isoformat(),
+                    "debug_info": {
+                        "wallet_address": self.wallet_address,
+                        "verify_response": verify_data
+                    }
+                }
+            
             user_data = data['data']['user']
+            logger.info(f"Dados do usuário encontrados: {json.dumps(user_data, indent=2)}")
             
-            # Extrair Health Factor (dividir por 10^18)
-            health_factor = float(user_data.get('healthFactor', 0)) if user_data.get('healthFactor') else 0
-            if health_factor > 0:
-                health_factor = health_factor / 1e18
+            # Extrair Health Factor
+            health_factor = 0
+            if user_data.get('healthFactor') and user_data['healthFactor'] != "0":
+                health_factor = float(user_data['healthFactor'])
+                # Na AAVE v3, o health factor pode vir em diferentes formatos
+                # Se for um valor muito grande, provavelmente precisa ser dividido por 10^18
+                if health_factor > 100000:
+                    health_factor = health_factor / 1e18
             
-            # Calcular valores para WBTC
-            wbtc_balance = 0
-            wbtc_usd_value = 0
+            # Calcular valores para todos os ativos
+            supplied_assets = 0
+            asset_details = []
             
             for reserve in user_data.get('reserves', []):
-                if reserve['reserve']['symbol'] == 'WBTC':
-                    decimals = int(reserve['reserve']['decimals'])
-                    price_usd = float(reserve['reserve']['price']['priceInUSD'])
-                    wbtc_balance = float(reserve['currentATokenBalance']) / (10 ** decimals)
-                    wbtc_usd_value = wbtc_balance * price_usd
+                symbol = reserve['reserve']['symbol']
+                decimals = int(reserve['reserve']['decimals'])
+                price_usd = float(reserve['reserve']['price']['priceInUSD'])
+                balance = float(reserve['currentATokenBalance']) / (10 ** decimals)
+                usd_value = balance * price_usd
+                
+                asset_details.append({
+                    "symbol": symbol,
+                    "balance": balance,
+                    "usd_value": usd_value
+                })
+                
+                supplied_assets += usd_value
+                
+                logger.info(f"Asset {symbol}: {balance} tokens = ${usd_value}")
             
             # Calcular NAV (Net Asset Value)
-            total_collateral = float(user_data.get('totalCollateralUSD', 0)) if user_data.get('totalCollateralUSD') else 0
-            total_debt = float(user_data.get('totalDebtUSD', 0)) if user_data.get('totalDebtUSD') else 0
+            total_collateral = float(user_data.get('totalCollateralUSD', 0))
+            total_debt = float(user_data.get('totalDebtUSD', 0))
             
-            if total_collateral > 0:
+            # Verificar se os valores precisam ser ajustados (divisão por 10^8)
+            if total_collateral > 1e8:
                 total_collateral = total_collateral / 1e8
-            if total_debt > 0:
+            
+            if total_debt > 1e8:
                 total_debt = total_debt / 1e8
                 
             nav = total_collateral - total_debt
@@ -119,14 +197,21 @@ class FinancialRiskService:
             # Calcular alavancagem
             leverage = total_collateral / nav if nav > 0 else 0
             
+            logger.info(f"Health Factor: {health_factor}")
+            logger.info(f"Total Collateral: ${total_collateral}")
+            logger.info(f"Total Debt: ${total_debt}")
+            logger.info(f"NAV: ${nav}")
+            logger.info(f"Leverage: {leverage}x")
+            
             # Resultado
             data = {
                 "health_factor": health_factor,
                 "alavancagem": round(leverage, 2),
-                "supplied_asset_value": wbtc_usd_value if wbtc_usd_value > 0 else total_collateral,
+                "supplied_asset_value": supplied_assets if supplied_assets > 0 else total_collateral,
                 "net_asset_value": nav,
                 "total_collateral_usd": total_collateral,
                 "total_debt_usd": total_debt,
+                "asset_details": asset_details,
                 "timestamp": current_time.isoformat()
             }
             
@@ -138,14 +223,14 @@ class FinancialRiskService:
             return data
             
         except Exception as e:
-            logger.error(f"Erro ao buscar dados financeiros: {e}")
+            logger.exception(f"Erro ao buscar dados financeiros: {e}")
             # Em caso de erro, tenta usar o cache antigo se disponível
             if self.cache:
                 return self.cache
             # Ou retorna valores de fallback
             return {
-                "health_factor": 0,  # Valor zero para indicar falha na extração
-                "alavancagem": 0,    # Valor zero para indicar falha na extração
+                "health_factor": 0,
+                "alavancagem": 0,
                 "supplied_asset_value": 0,
                 "net_asset_value": 0,
                 "error": str(e),
