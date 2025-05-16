@@ -13,56 +13,12 @@ class FinancialRiskService:
     def __init__(self):
         # Endereço da carteira será obtido da variável de ambiente WALLET_ADDRESS
         self.wallet_address = os.getenv("WALLET_ADDRESS", "").lower()
-        
-        # Lista de possíveis endpoints para o AAVE v3 Arbitrum
-        self.endpoints = [
-            "https://api.thegraph.com/subgraphs/name/aave/protocol-v3-arbitrum",
-            "https://api.thegraph.com/subgraphs/name/aave/protocol-v3-arbitrum-one",
-            "https://api.studio.thegraph.com/query/24660/aave-v3-arbitrum/version/latest",
-            "https://gateway-arbitrum.network.thegraph.com/api/subgraphs/name/aave/protocol-v3",
-            "https://gateway.thegraph.com/api/subgraphs/name/aave/protocol-v3-arbitrum",
-            "https://thegraph.com/hosted-service/subgraph/aave/protocol-v3-arbitrum"
-        ]
-        
-        # Vamos determinar o endpoint funcionando no momento da primeira consulta
-        self.working_endpoint = None
-        
         self.cache = None
         self.last_fetch = None
         self.cache_duration = datetime.timedelta(minutes=10)  # Cache válido por 10 minutos
     
-    def find_working_endpoint(self):
-        """Testa os endpoints disponíveis para encontrar um que funcione"""
-        if self.working_endpoint:
-            return self.working_endpoint
-        
-        # Consulta básica para verificar se o endpoint responde
-        query = '{users(first: 1) {id}}'
-        
-        for endpoint in self.endpoints:
-            try:
-                logger.info(f"Testando endpoint: {endpoint}")
-                response = requests.post(endpoint, json={'query': query}, timeout=5)
-                
-                if response.status_code == 200:
-                    data = response.json()
-                    if 'data' in data and not 'errors' in data:
-                        logger.info(f"✅ Endpoint funcionando: {endpoint}")
-                        self.working_endpoint = endpoint
-                        return endpoint
-                    else:
-                        logger.warning(f"⚠️ {endpoint} - Responde mas com erros: {json.dumps(data)}")
-                else:
-                    logger.warning(f"❌ {endpoint} - Erro HTTP {response.status_code}")
-            except Exception as e:
-                logger.error(f"❌ {endpoint} - Erro: {str(e)}")
-        
-        # Se nenhum endpoint funcionou
-        logger.error("Não foi possível encontrar um endpoint funcionando para The Graph AAVE v3")
-        return None
-    
     async def fetch_financial_data(self) -> Dict[str, Any]:
-        """Busca dados financeiros da carteira na AAVE v3 via The Graph API"""
+        """Busca dados financeiros da carteira na AAVE v3 via APIs oficiais da AAVE"""
         current_time = datetime.datetime.now()
         
         # Verifica se o cache é válido
@@ -73,165 +29,42 @@ class FinancialRiskService:
         # Verifica se o endereço da carteira está definido
         if not self.wallet_address:
             logger.error("Endereço de carteira não definido na variável de ambiente WALLET_ADDRESS")
-            return self.create_default_response("Endereço de carteira não configurado")
+            return {
+                "health_factor": 0,
+                "alavancagem": 0,
+                "supplied_asset_value": 0,
+                "net_asset_value": 0,
+                "error": "Endereço de carteira não configurado",
+                "timestamp": current_time.isoformat()
+            }
             
         try:
-            # Encontra um endpoint funcionando
-            endpoint = self.find_working_endpoint()
-            if not endpoint:
-                return self.create_default_response("Nenhum endpoint AAVE v3 disponível")
-            
             logger.info(f"Buscando dados financeiros para carteira: {self.wallet_address}")
             
-            # Consulta GraphQL para obter reservas do usuário
-            query = """
-            {
-              userReserves(where: {user: "%s"}) {
-                reserve {
-                  symbol
-                  decimals
-                  price {
-                    priceInUSD
-                  }
-                  usageAsCollateralEnabled
+            # Tentar obter dados usando múltiplos métodos com fallback automático
+            result = self.get_aave_data_with_fallback()
+            
+            if "error" in result:
+                logger.error(f"Erro ao buscar dados financeiros: {result['error']}")
+                return {
+                    "health_factor": 0,
+                    "alavancagem": 0,
+                    "supplied_asset_value": 0,
+                    "net_asset_value": 0,
+                    "error": result["error"],
+                    "timestamp": current_time.isoformat()
                 }
-                currentATokenBalance
-                currentStableDebt
-                currentVariableDebt
-                usageAsCollateralEnabledOnUser
-              }
-              user(id: "%s") {
-                id
-                healthFactor
-                totalCollateralUSD
-                totalDebtUSD
-              }
-            }
-            """ % (self.wallet_address, self.wallet_address)
             
-            logger.debug(f"Query GraphQL: {query}")
+            # Extrair dados do resultado
+            health_factor = result["health_factor"]
+            total_collateral = result["total_collateral_usd"]
+            total_debt = result["total_debt_usd"]
+            nav = result["net_asset_value_usd"]
+            wbtc_supplied_value = result.get("wbtc_supplied_value_usd", 0)
             
-            # Enviar requisição POST
-            response = requests.post(endpoint, json={'query': query})
-            
-            # Verificar resposta
-            if response.status_code != 200:
-                logger.error(f"API retornou código de status {response.status_code}: {response.text}")
-                return self.create_default_response(f"API retornou código de status {response.status_code}")
-            
-            data = response.json()
-            logger.debug(f"Resposta da API: {json.dumps(data, indent=2)}")
-            
-            if data.get('errors'):
-                logger.error(f"Erro na consulta GraphQL: {data.get('errors')}")
-                return self.create_default_response(f"Erro na consulta GraphQL: {data.get('errors')}")
-            
-            user_reserves = data.get('data', {}).get('userReserves', [])
-            if not user_reserves:
-                logger.warning(f"Usuário não encontrado ou sem posições na AAVE v3: {self.wallet_address}")
-                
-                # Tentar uma consulta para todos os usuários recentes para verificar se a API está retornando dados
-                sample_query = """
-                {
-                  users(first: 5) {
-                    id
-                    healthFactor
-                    totalCollateralUSD
-                    totalDebtUSD
-                  }
-                }
-                """
-                
-                sample_response = requests.post(endpoint, json={'query': sample_query})
-                sample_data = sample_response.json()
-                
-                if 'data' in sample_data and sample_data['data'].get('users'):
-                    users = sample_data['data']['users']
-                    logger.info(f"Exemplos de usuários com posições: {json.dumps(users, indent=2)}")
-                    
-                    # Verificar se o formato do endereço está correto
-                    example_user = users[0]['id']
-                    if example_user.startswith("0x") and self.wallet_address.startswith("0x"):
-                        logger.info("O formato do endereço parece correto (0x...)")
-                    else:
-                        logger.warning(f"Formato de endereço diferente. Exemplo API: {example_user}, Seu endereço: {self.wallet_address}")
-                
-                return self.create_default_response("Posição não encontrada")
-            
-            user_data = data.get('data', {}).get('user', {})
-            
-            # Extrair Health Factor (pode ser None, infinity ou um número)
-            health_factor = 0
-            
-            if user_data and user_data.get('healthFactor'):
-                if user_data['healthFactor'] == "0" or user_data['healthFactor'] == 0:
-                    health_factor = float('inf')  # Sem dívidas = risco zero = HF infinito
-                else:
-                    health_factor = float(user_data['healthFactor'])
-                    # Na AAVE v3, o health factor geralmente precisa ser ajustado
-                    if health_factor > 100:
-                        health_factor = health_factor / 1e18
-            else:
-                health_factor = float('inf')  # Se não tem dados de HF, provavelmente não tem empréstimos
-            
-            # Processar reservas para calcular valores
-            supplied_assets = 0
-            debt_amount = 0
-            asset_details = []
-            
-            for reserve in user_reserves:
-                symbol = reserve['reserve']['symbol']
-                decimals = int(reserve['reserve']['decimals'])
-                price_usd = float(reserve['reserve']['price']['priceInUSD'])
-                
-                # Saldos e dívidas
-                a_token_balance = float(reserve['currentATokenBalance']) / (10 ** decimals)
-                stable_debt = float(reserve['currentStableDebt']) / (10 ** decimals)
-                variable_debt = float(reserve['currentVariableDebt']) / (10 ** decimals)
-                
-                # Valor em USD
-                supplied_value = a_token_balance * price_usd
-                debt_value = (stable_debt + variable_debt) * price_usd
-                
-                # Só adiciona como colateral se estiver habilitado para tal
-                collateral_enabled = reserve.get('usageAsCollateralEnabledOnUser', False)
-                collateral_value = supplied_value if collateral_enabled else 0
-                
-                asset_details.append({
-                    "symbol": symbol,
-                    "supplied_balance": a_token_balance,
-                    "supplied_value_usd": supplied_value,
-                    "debt_balance": stable_debt + variable_debt,
-                    "debt_value_usd": debt_value,
-                    "collateral_enabled": collateral_enabled,
-                    "collateral_value_usd": collateral_value
-                })
-                
-                supplied_assets += supplied_value
-                debt_amount += debt_value
-                
-                logger.info(f"Asset {symbol}: {a_token_balance} supplied = ${supplied_value}, {stable_debt + variable_debt} borrowed = ${debt_value}")
-            
-            # Calcular NAV (Net Asset Value)
-            total_collateral = 0
-            total_debt = 0
-            
-            if user_data:
-                total_collateral = float(user_data.get('totalCollateralUSD', 0))
-                total_debt = float(user_data.get('totalDebtUSD', 0))
-                
-                # Verificar se os valores precisam ser ajustados
-                if total_collateral > 1e8:
-                    total_collateral = total_collateral / 1e8
-                
-                if total_debt > 1e8:
-                    total_debt = total_debt / 1e8
-            else:
-                # Usar os valores calculados se não temos dados do usuário
-                total_collateral = supplied_assets
-                total_debt = debt_amount
-                
-            nav = total_collateral - total_debt
+            # Se nav for zero, use total_collateral para evitar divisão por zero
+            if nav <= 0 and total_collateral > 0:
+                nav = total_collateral
             
             # Calcular alavancagem
             leverage = total_collateral / nav if nav > 0 else 0
@@ -241,16 +74,17 @@ class FinancialRiskService:
             logger.info(f"Total Debt: ${total_debt}")
             logger.info(f"NAV: ${nav}")
             logger.info(f"Leverage: {leverage}x")
+            logger.info(f"WBTC Supplied Value: ${wbtc_supplied_value}")
             
             # Resultado
             data = {
                 "health_factor": health_factor,
                 "alavancagem": round(leverage, 2),
                 "supplied_asset_value": total_collateral,
+                "wbtc_supplied_value": wbtc_supplied_value,
                 "net_asset_value": nav,
                 "total_collateral_usd": total_collateral,
                 "total_debt_usd": total_debt,
-                "asset_details": asset_details,
                 "timestamp": current_time.isoformat()
             }
             
@@ -267,18 +101,239 @@ class FinancialRiskService:
             if self.cache:
                 return self.cache
             # Ou retorna valores de fallback
-            return self.create_default_response(str(e))
+            return {
+                "health_factor": 0,
+                "alavancagem": 0,
+                "supplied_asset_value": 0,
+                "net_asset_value": 0,
+                "error": str(e),
+                "timestamp": current_time.isoformat()
+            }
     
-    def create_default_response(self, error_message="Erro desconhecido"):
-        """Cria uma resposta padrão em caso de erro"""
-        return {
-            "health_factor": 0,
-            "alavancagem": 0,
-            "supplied_asset_value": 0,
-            "net_asset_value": 0,
-            "error": error_message,
-            "timestamp": datetime.datetime.now().isoformat()
-        }
+    def get_aave_data_with_fallback(self) -> Dict[str, Any]:
+        """
+        Tentar obter dados usando múltiplos métodos com fallback automático
+        """
+        # Primeiro método: API Oficial AAVE v1
+        result = self.get_aave_data_official_api()
+        if "error" not in result:
+            logger.info("Dados obtidos com sucesso usando API oficial v1")
+            return result
+        
+        logger.warning(f"Falha no método API oficial v1: {result.get('error')}")
+        
+        # Segundo método: API Alternativa AAVE v3
+        result_alt = self.get_aave_data_alternative()
+        if "error" not in result_alt:
+            logger.info("Dados obtidos com sucesso usando API alternativa v3")
+            return result_alt
+        
+        logger.warning(f"Falha no método API alternativa v3: {result_alt.get('error')}")
+        
+        # Terceiro método: API UI da AAVE
+        result_ui = self.get_aave_data_ui_api()
+        if "error" not in result_ui:
+            logger.info("Dados obtidos com sucesso usando UI API")
+            return result_ui
+        
+        logger.warning(f"Falha no método UI API: {result_ui.get('error')}")
+        
+        # Se todos os métodos falharem, retorna erro
+        return {"error": "Não foi possível obter dados da posição AAVE com nenhum método"}
+    
+    def get_aave_data_official_api(self) -> Dict[str, Any]:
+        """
+        Obter dados da AAVE v3 na Arbitrum usando a API oficial da AAVE
+        """
+        # ID da rede Arbitrum
+        network_id = 42161
+        
+        # Endpoint da API oficial da AAVE para v3
+        url = f"https://app.aave.com/api/v1/data/user-summary?address={self.wallet_address}&network={network_id}"
+        
+        try:
+            logger.info(f"Consultando API oficial AAVE: {url}")
+            response = requests.get(url)
+            
+            if response.status_code != 200:
+                logger.error(f"Erro ao acessar API oficial: {response.status_code} - {response.text}")
+                return {"error": f"Erro ao acessar API: {response.status_code}"}
+                
+            data = response.json()
+            logger.debug(f"Resposta da API oficial: {json.dumps(data, indent=2)}")
+            
+            # Verificar se há dados relevantes
+            if not data or "error" in data:
+                if "error" in data:
+                    logger.error(f"Erro retornado pela API: {data['error']}")
+                else:
+                    logger.warning("API retornou objeto vazio ou sem dados")
+                return {"error": "Posição não encontrada ou erro na API"}
+                
+            # Estrutura esperada da resposta
+            wbtc_supplied_value = 0
+            health_factor = float('inf')
+            net_asset_value = 0
+            
+            # Processar health factor
+            if "healthFactor" in data:
+                try:
+                    health_factor = float(data["healthFactor"])
+                    logger.info(f"Health factor encontrado: {health_factor}")
+                except (ValueError, TypeError):
+                    logger.warning("Health factor não é um número válido, definindo como infinito")
+                    health_factor = float('inf')
+                    
+            # Processar net asset value (totalCollateralUSD - totalDebtUSD)
+            total_collateral = float(data.get("totalCollateralUSD", 0))
+            total_debt = float(data.get("totalDebtUSD", 0))
+            net_asset_value = total_collateral - total_debt
+            
+            logger.info(f"Collateral: ${total_collateral}, Debt: ${total_debt}, NAV: ${net_asset_value}")
+            
+            # Buscar valor específico de WBTC fornecido
+            supplies = data.get("supplies", [])
+            for asset in supplies:
+                if asset.get("symbol") == "WBTC":
+                    wbtc_supplied_value = float(asset.get("amountUSD", 0))
+                    logger.info(f"WBTC fornecido: ${wbtc_supplied_value}")
+                    break
+                    
+            return {
+                "health_factor": health_factor,
+                "wbtc_supplied_value_usd": wbtc_supplied_value,
+                "net_asset_value_usd": net_asset_value,
+                "total_collateral_usd": total_collateral,
+                "total_debt_usd": total_debt
+            }
+            
+        except Exception as e:
+            logger.exception(f"Erro ao processar dados da API oficial: {e}")
+            return {"error": f"Erro ao processar dados: {str(e)}"}
+    
+    def get_aave_data_alternative(self) -> Dict[str, Any]:
+        """
+        Endpoint alternativo da API AAVE para dados de usuário
+        """
+        url = f"https://api.aave.com/data/v3/users/{self.wallet_address}/summary?networkId=42161"
+        
+        try:
+            logger.info(f"Consultando API alternativa AAVE v3: {url}")
+            response = requests.get(url)
+            
+            if response.status_code != 200:
+                logger.error(f"Erro ao acessar API alternativa: {response.status_code} - {response.text}")
+                return {"error": f"Erro ao acessar API alternativa: {response.status_code}"}
+                
+            data = response.json()
+            logger.debug(f"Resposta da API alternativa: {json.dumps(data, indent=2)}")
+            
+            # Processar dados
+            health_factor = data.get("healthFactor")
+            # Converter para float, tratando 'Infinity' ou outros valores não numéricos
+            try:
+                health_factor = float(health_factor) if health_factor is not None else float('inf')
+            except (ValueError, TypeError):
+                health_factor = float('inf')
+            
+            if health_factor == 0:
+                health_factor = float('inf')
+                
+            total_collateral_usd = float(data.get("totalCollateralMarketReferenceCurrency", 0))
+            total_debt_usd = float(data.get("totalBorrowsMarketReferenceCurrency", 0))
+            net_asset_value = total_collateral_usd - total_debt_usd
+            
+            logger.info(f"Alternativo - HF: {health_factor}, Collateral: ${total_collateral_usd}, Debt: ${total_debt_usd}")
+            
+            # Encontrar WBTC nos ativos
+            wbtc_supplied_value = 0
+            for asset in data.get("userReservesData", []):
+                if asset.get("reserve", {}).get("symbol") == "WBTC":
+                    wbtc_supplied_value = float(asset.get("underlyingBalanceUSD", 0))
+                    logger.info(f"WBTC fornecido (alternativo): ${wbtc_supplied_value}")
+                    break
+                    
+            return {
+                "health_factor": health_factor,
+                "wbtc_supplied_value_usd": wbtc_supplied_value,
+                "net_asset_value_usd": net_asset_value,
+                "total_collateral_usd": total_collateral_usd,
+                "total_debt_usd": total_debt_usd
+            }
+            
+        except Exception as e:
+            logger.exception(f"Erro ao processar dados alternativos: {e}")
+            return {"error": f"Erro ao processar dados alternativos: {str(e)}"}
+    
+    def get_aave_data_ui_api(self) -> Dict[str, Any]:
+        """
+        Obtém dados do usuário usando a API UI da AAVE
+        """
+        try:
+            # Primeiro, obter dados gerais do pool
+            ui_api_url = "https://app.aave.com/api/v1/ui-pool-data?networkId=42161&lendingPoolAddressProvider=0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb"
+            
+            logger.info(f"Consultando UI API para dados de pool: {ui_api_url}")
+            response = requests.get(ui_api_url)
+            
+            if response.status_code != 200:
+                logger.error(f"Erro ao acessar UI API (pool data): {response.status_code}")
+                return {"error": f"Erro ao acessar UI API (pool): {response.status_code}"}
+                
+            pool_data = response.json()
+            
+            # Agora obter os dados específicos do usuário
+            user_api_url = f"https://app.aave.com/api/v1/user-data?networkId=42161&userAddress={self.wallet_address}"
+            
+            logger.info(f"Consultando UI API para dados do usuário: {user_api_url}")
+            user_response = requests.get(user_api_url)
+            
+            if user_response.status_code != 200:
+                logger.error(f"Erro ao acessar UI API (user data): {user_response.status_code}")
+                return {"error": f"Erro ao acessar UI API (user): {user_response.status_code}"}
+                
+            user_data = user_response.json()
+            logger.debug(f"Resposta da UI API (user): {json.dumps(user_data, indent=2)}")
+            
+            if not user_data:
+                logger.warning("UI API retornou dados vazios para o usuário")
+                return {"error": "Sem dados de usuário na UI API"}
+                
+            # Extrair Health Factor
+            health_factor = float('inf')  # Valor padrão se não houver empréstimos
+            if "healthFactor" in user_data and user_data["healthFactor"] is not None:
+                try:
+                    health_factor = float(user_data["healthFactor"])
+                    if health_factor == 0:
+                        health_factor = float('inf')  # 0 significa "sem empréstimos"
+                except (ValueError, TypeError):
+                    logger.warning(f"Valor inválido para healthFactor: {user_data['healthFactor']}")
+            
+            # Calcular valores totais
+            total_collateral_usd = float(user_data.get("totalLiquidityUSD", 0))
+            total_debt_usd = float(user_data.get("totalBorrowsUSD", 0))
+            net_asset_value = total_collateral_usd - total_debt_usd
+            
+            # Buscar valor de WBTC
+            wbtc_supplied_value = 0
+            for asset in user_data.get("reserves", []):
+                if asset.get("symbol") == "WBTC" and "underlyingBalanceUSD" in asset:
+                    wbtc_supplied_value = float(asset["underlyingBalanceUSD"])
+                    break
+            
+            logger.info(f"UI API - HF: {health_factor}, Collateral: ${total_collateral_usd}, Debt: ${total_debt_usd}")
+            
+            return {
+                "health_factor": health_factor,
+                "wbtc_supplied_value_usd": wbtc_supplied_value,
+                "net_asset_value_usd": net_asset_value,
+                "total_collateral_usd": total_collateral_usd,
+                "total_debt_usd": total_debt_usd
+            }
+            
+        except Exception as e:
+            logger.exception(f"Erro ao processar dados da UI API: {e}")
+            return {"error": f"Erro ao processar dados da UI API: {str(e)}"}
     
     def calculate_financial_risk(self, financial_data: Dict[str, Any]) -> Dict[str, Any]:
         """Calcula o score de risco financeiro baseado nos indicadores"""
@@ -286,11 +341,13 @@ class FinancialRiskService:
         hf = financial_data["health_factor"]
         leverage = financial_data["alavancagem"]
         
-        # Tratamento para health factor infinito (sem empréstimos)
-        if hf == float('inf'):
-            hf_classification = "Sem empréstimos"
-            hf_score = 1.0  # Risco mínimo
+        # Verificação para health factor infinito (sem empréstimos)
+        is_infinite_hf = (hf == float('inf') or hf > 1000)
+        
         # Cálculo do score para Health Factor (inversamente proporcional)
+        if is_infinite_hf:
+            hf_score = 1.0  # Risco mínimo (sem empréstimos)
+            hf_classification = "Sem empréstimos"
         elif hf < 1.0:
             hf_score = 10.0  # Risco máximo
             hf_classification = "Liquidação Iminente"
@@ -309,7 +366,7 @@ class FinancialRiskService:
         else:
             hf_score = 1.0   # Risco mínimo
             hf_classification = "Seguro"
-            
+        
         # Cálculo do score para Alavancagem
         if leverage > 5.0:
             leverage_score = 10.0  # Risco extremo
@@ -336,33 +393,36 @@ class FinancialRiskService:
         
         # Alertas principais
         alertas = []
-        if hf != float('inf') and hf < 1.5:
-            alertas.append(f"HF crítico: {hf}")
+        if hf < 1.5 and not is_infinite_hf:
+            alertas.append(f"HF crítico: {hf:.2f}")
         if leverage > 3.0:
             alertas.append(f"Alavancagem elevada: {leverage}x")
         
-        # Se não há alertas, adicione uma mensagem positiva
+        # Se não houver alertas, adicionar um neutro
         if not alertas:
-            if hf == float('inf'):
+            if is_infinite_hf:
                 alertas.append("Sem empréstimos ativos")
             else:
-                alertas.append(f"Position saudável: HF = {hf}")
+                alertas.append(f"HF saudável: {hf:.2f}")
+        
+        # Formatar health factor para exibição
+        hf_display = "∞" if is_infinite_hf else hf
         
         # Resposta completa
         return {
             "categoria": "Financeiro Direto",
-            "score": round(final_score, 1),
+            "score": round(final_score, 2),
             "peso": 0.35,  # Peso desta categoria no risco global
             "principais_alertas": alertas,
             "detalhes": {
                 "health_factor": {
-                    "valor": float('inf') if hf == float('inf') else round(hf, 2),
+                    "valor": hf_display,
                     "classificacao": hf_classification,
                     "score": hf_score,
                     "peso": hf_weight
                 },
                 "alavancagem": {
-                    "valor": round(leverage, 2),
+                    "valor": leverage,
                     "classificacao": leverage_classification,
                     "score": leverage_score,
                     "peso": leverage_weight
