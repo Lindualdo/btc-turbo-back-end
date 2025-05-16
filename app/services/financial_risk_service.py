@@ -45,7 +45,7 @@ class FinancialRiskService:
     def initialize_web3(self):
         """Inicializa a conexão Web3 com RPC público"""
         try:
-            # Tenta vários RPC públicos disponíveis
+            # Tenta vários RPCs públicos disponíveis
             rpc_endpoints = [
                 "https://arb1.arbitrum.io/rpc",
                 "https://arbitrum-one.public.blastapi.io",
@@ -196,7 +196,7 @@ class FinancialRiskService:
             self.cache = result
             self.last_fetch = current_time
             
-            logger.info(f"Dados financeiros obtidos com sucesso: HF={health_factor}, NAV=${nav}")
+            logger.info(f"Dados financeiros obtidos com sucesso: HF={health_factor}, Collateral=${total_collateral}, Debt=${total_debt}, NAV=${nav}, Leverage={leverage}")
             return result
             
         except Exception as e:
@@ -256,7 +256,7 @@ class FinancialRiskService:
             # Em uma implementação mais completa, precisaríamos consultar cada token separadamente
             wbtc_supplied_value_usd = total_collateral_usd
             
-            logger.info(f"Dados obtidos via Web3: HF={health_factor}, Collateral=${total_collateral_usd}, Debt=${total_debt_usd}")
+            logger.info(f"Dados obtidos via Web3: HF={health_factor}, Collateral=${total_collateral_usd}, Debt=${total_debt_usd}, NAV=${net_asset_value}, Leverage={leverage}")
             
             return {
                 "health_factor": health_factor,
