@@ -658,7 +658,7 @@ class FinancialRiskService:
         financial_info = {
             "collateral": financial_data.get("total_collateral_usd", 0),
             "debt": financial_data.get("total_debt_usd", 0),
-            "nav": financial_data.get("net_asset_value_usd", 0)  # Corrigido para usar a chave correta
+            "nav": financial_data.get("net_asset_value_usd", 0)
         }
         
         # Resposta completa
