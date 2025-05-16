@@ -3,7 +3,6 @@ import datetime
 import logging
 from typing import Dict, Any, Optional
 import os
-import json
 
 # Configura o logger
 logging.basicConfig(level=logging.INFO)
@@ -42,29 +41,28 @@ class FinancialRiskService:
         try:
             logger.info(f"Buscando dados financeiros para carteira: {self.wallet_address}")
             
-            # Consulta GraphQL para AAVE v3 Arbitrum
+            # Consulta GraphQL para AAVE v3 Arbitrum - usando userReserves para verificação
             query = """
             {
+              userReserves(where: {user: "%s"}) {
+                reserve {
+                  symbol
+                  decimals
+                  price {
+                    priceInUSD
+                  }
+                }
+                currentATokenBalance
+                currentStableDebt
+                currentVariableDebt
+              }
               user(id: "%s") {
-                id
                 healthFactor
                 totalCollateralUSD
                 totalDebtUSD
-                reserves(where: {usageAsCollateralEnabledOnUser: true}) {
-                  reserve {
-                    symbol
-                    decimals
-                    price {
-                      priceInUSD
-                    }
-                  }
-                  currentATokenBalance
-                }
               }
             }
-            """ % self.wallet_address
-            
-            logger.debug(f"Query GraphQL: {query}")
+            """ % (self.wallet_address, self.wallet_address)
             
             # Enviar requisição POST
             response = requests.post(
@@ -78,7 +76,6 @@ class FinancialRiskService:
                 raise Exception(f"API retornou código de status {response.status_code}")
             
             data = response.json()
-            logger.debug(f"Resposta da API: {json.dumps(data, indent=2)}")
             
             if data.get('errors'):
                 logger.error(f"Erro na consulta GraphQL: {data.get('errors')}")
@@ -91,69 +88,26 @@ class FinancialRiskService:
                     "timestamp": current_time.isoformat()
                 }
             
-            if data.get('data', {}).get('user') is None:
-                # O endereço pode estar em um formato diferente, vamos tentar com '0x' em minúsculo
-                if self.wallet_address.startswith("0X"):
-                    corrected_address = "0x" + self.wallet_address[2:]
-                    logger.info(f"Tentando novamente com endereço corrigido: {corrected_address}")
-                    self.wallet_address = corrected_address
-                    return await self.fetch_financial_data()
-                
+            # Verificar se há dados do usuário
+            user_reserves = data.get('data', {}).get('userReserves', [])
+            if not user_reserves:
                 logger.warning(f"Posição não encontrada para o endereço da carteira: {self.wallet_address}")
-                
-                # Tentando verificar se o endereço existe com outra consulta
-                verify_query = """
-                {
-                  users(where: {id: "%s"}) {
-                    id
-                  }
-                }
-                """ % self.wallet_address
-                
-                verify_response = requests.post(
-                    self.subgraph_url,
-                    json={'query': verify_query}
-                )
-                
-                verify_data = verify_response.json()
-                logger.debug(f"Verificação de endereço: {json.dumps(verify_data, indent=2)}")
-                
-                # Para fins de depuração, vamos verificar uma lista de usuários recentes
-                sample_query = """
-                {
-                  users(first: 5) {
-                    id
-                  }
-                }
-                """
-                
-                sample_response = requests.post(
-                    self.subgraph_url,
-                    json={'query': sample_query}
-                )
-                
-                sample_data = sample_response.json()
-                logger.info(f"Amostra de usuários recentes: {json.dumps(sample_data.get('data', {}).get('users', []), indent=2)}")
-                
                 return {
                     "health_factor": 0,
                     "alavancagem": 0,
                     "supplied_asset_value": 0,
                     "net_asset_value": 0,
                     "error": "Posição não encontrada",
-                    "timestamp": current_time.isoformat(),
-                    "debug_info": {
-                        "wallet_address": self.wallet_address,
-                        "verify_response": verify_data
-                    }
+                    "timestamp": current_time.isoformat()
                 }
             
-            user_data = data['data']['user']
-            logger.info(f"Dados do usuário encontrados: {json.dumps(user_data, indent=2)}")
+            user_data = data.get('data', {}).get('user', {})
+            logger.info(f"Encontradas {len(user_reserves)} reservas para o endereço: {self.wallet_address}")
             
             # Extrair Health Factor
-            health_factor = 0
-            if user_data.get('healthFactor') and user_data['healthFactor'] != "0":
+            health_factor = float('inf')  # Valor padrão se não houver dívidas
+            
+            if user_data and user_data.get('healthFactor') and user_data['healthFactor'] != "0":
                 health_factor = float(user_data['healthFactor'])
                 # Na AAVE v3, o health factor pode vir em diferentes formatos
                 # Se for um valor muito grande, provavelmente precisa ser dividido por 10^18
@@ -164,26 +118,37 @@ class FinancialRiskService:
             supplied_assets = 0
             asset_details = []
             
-            for reserve in user_data.get('reserves', []):
+            # Processamento para cada reserva do usuário
+            for reserve in user_reserves:
                 symbol = reserve['reserve']['symbol']
                 decimals = int(reserve['reserve']['decimals'])
                 price_usd = float(reserve['reserve']['price']['priceInUSD'])
-                balance = float(reserve['currentATokenBalance']) / (10 ** decimals)
-                usd_value = balance * price_usd
+                
+                # Saldo de tokens depositados
+                a_token_balance = float(reserve['currentATokenBalance']) / (10 ** decimals)
+                a_token_usd = a_token_balance * price_usd
+                
+                # Dívidas estáveis e variáveis (se houver)
+                stable_debt = float(reserve['currentStableDebt']) / (10 ** decimals) if reserve.get('currentStableDebt') else 0
+                variable_debt = float(reserve['currentVariableDebt']) / (10 ** decimals) if reserve.get('currentVariableDebt') else 0
+                
+                total_debt = (stable_debt + variable_debt) * price_usd
                 
                 asset_details.append({
                     "symbol": symbol,
-                    "balance": balance,
-                    "usd_value": usd_value
+                    "balance": a_token_balance,
+                    "usd_value": a_token_usd,
+                    "debt_balance": stable_debt + variable_debt,
+                    "debt_usd_value": total_debt
                 })
                 
-                supplied_assets += usd_value
+                supplied_assets += a_token_usd
                 
-                logger.info(f"Asset {symbol}: {balance} tokens = ${usd_value}")
+                logger.info(f"Asset {symbol}: {a_token_balance} tokens = ${a_token_usd:.2f}, Debt: ${total_debt:.2f}")
             
             # Calcular NAV (Net Asset Value)
-            total_collateral = float(user_data.get('totalCollateralUSD', 0))
-            total_debt = float(user_data.get('totalDebtUSD', 0))
+            total_collateral = float(user_data.get('totalCollateralUSD', 0)) if user_data else 0
+            total_debt = float(user_data.get('totalDebtUSD', 0)) if user_data else 0
             
             # Verificar se os valores precisam ser ajustados (divisão por 10^8)
             if total_collateral > 1e8:
@@ -191,6 +156,10 @@ class FinancialRiskService:
             
             if total_debt > 1e8:
                 total_debt = total_debt / 1e8
+            
+            # Se não temos os totais do objeto user, calcule a partir das reservas
+            if total_collateral == 0:
+                total_collateral = supplied_assets
                 
             nav = total_collateral - total_debt
             
@@ -207,7 +176,7 @@ class FinancialRiskService:
             data = {
                 "health_factor": health_factor,
                 "alavancagem": round(leverage, 2),
-                "supplied_asset_value": supplied_assets if supplied_assets > 0 else total_collateral,
+                "supplied_asset_value": supplied_assets,
                 "net_asset_value": nav,
                 "total_collateral_usd": total_collateral,
                 "total_debt_usd": total_debt,
@@ -223,7 +192,7 @@ class FinancialRiskService:
             return data
             
         except Exception as e:
-            logger.exception(f"Erro ao buscar dados financeiros: {e}")
+            logger.exception(f"Erro ao buscar dados financeiros para {self.wallet_address}: {e}")
             # Em caso de erro, tenta usar o cache antigo se disponível
             if self.cache:
                 return self.cache
@@ -243,6 +212,10 @@ class FinancialRiskService:
         hf = financial_data["health_factor"]
         leverage = financial_data["alavancagem"]
         
+        # Se health factor é infinito (não tem dívidas), define como valor alto
+        if hf == float('inf'):
+            hf = 10.0
+        
         # Cálculo do score para Health Factor (inversamente proporcional)
         if hf < 1.0:
             hf_score = 10.0  # Risco máximo
@@ -258,7 +231,9 @@ class FinancialRiskService:
             hf_score = 1.0   # Risco mínimo
         
         # Classificação de Health Factor
-        if hf < 1.0:
+        if hf == 10.0:  # Nosso valor especial para sem dívidas
+            hf_classification = "Sem empréstimos"
+        elif hf < 1.0:
             hf_classification = "Liquidação Iminente"
         elif hf < 1.2:
             hf_classification = "Crítico"
@@ -302,7 +277,7 @@ class FinancialRiskService:
         
         # Alertas principais
         alertas = []
-        if hf < 1.5:
+        if hf < 1.5 and hf != 10.0:  # Não alertar quando não há empréstimos
             alertas.append(f"HF crítico: {hf}")
         if leverage > 3.0:
             alertas.append(f"Alavancagem elevada: {leverage}x")
