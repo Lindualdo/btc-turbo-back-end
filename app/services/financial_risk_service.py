@@ -589,7 +589,7 @@ class FinancialRiskService:
     def calculate_financial_risk(self, financial_data: Dict[str, Any]) -> Dict[str, Any]:
         """Calcula o score de risco financeiro baseado nos indicadores"""
         
-        hf = financial_data.get("health_factor", 0)
+        hf = round(financial_data.get("health_factor", 0),2)
          
         # Adicionar info dos valores financeiros
         financial_info = {
@@ -598,9 +598,9 @@ class FinancialRiskService:
             "nav": financial_data.get("net_asset_value_usd", 0)
         }
 
-        nav = financial_data.get("net_asset_value_usd", 0)
+        nav = round(financial_data.get("net_asset_value_usd", 0),2)
         total_collateral = financial_data.get("total_collateral_usd", 0)
-        leverage = total_collateral / nav if nav > 0 else 0
+        leverage = round( total_collateral / nav if nav > 0 else 0,2)
 
         # Verificar se é infinito ou NaN
         if hf == float('inf') or hf == float('nan') or hf <= 0:
@@ -673,13 +673,13 @@ class FinancialRiskService:
             "financial_overview": financial_info,
             "detalhes": {
                 "health_factor": {
-                    "valor": round(hf_display,3),
+                    "valor": hf_display,
                     "classificacao": hf_classification,
                     "score": hf_score,
                     "peso": hf_weight
                 },
                 "alavancagem": {
-                    "valor": round(leverage,2),
+                    "valor": leverage,
                     "classificacao": leverage_classification,
                     "score": leverage_score,
                     "peso": leverage_weight
