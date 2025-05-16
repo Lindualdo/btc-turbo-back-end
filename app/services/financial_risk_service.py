@@ -601,7 +601,7 @@ class FinancialRiskService:
         nav = financial_data.get("net_asset_value_usd", 0)
         total_collateral = financial_data.get("total_collateral_usd", 0)
         leverage = total_collateral / nav if nav > 0 else 0
-        
+
         # Verificar se é infinito ou NaN
         if hf == float('inf') or hf == float('nan') or hf <= 0:
             hf_display = "∞"  # Para apresentação
@@ -648,8 +648,8 @@ class FinancialRiskService:
             leverage_classification = "Baixa"
         
         # Pesos dos indicadores
-        hf_weight = 0.7
-        leverage_weight = 0.3
+        hf_weight = 0.8
+        leverage_weight = 0.2
         
         # Score final ponderado - se não tiver empréstimos, leverage é o único fator
         if hf == float('inf') or hf == float('nan') or hf <= 0:
@@ -673,13 +673,13 @@ class FinancialRiskService:
             "financial_overview": financial_info,
             "detalhes": {
                 "health_factor": {
-                    "valor": hf_display,
+                    "valor": round(hf_display,3),
                     "classificacao": hf_classification,
                     "score": hf_score,
                     "peso": hf_weight
                 },
                 "alavancagem": {
-                    "valor": leverage,
+                    "valor": round(leverage,2),
                     "classificacao": leverage_classification,
                     "score": leverage_score,
                     "peso": leverage_weight
