@@ -590,10 +590,17 @@ class FinancialRiskService:
         """Calcula o score de risco financeiro baseado nos indicadores"""
         
         hf = financial_data.get("health_factor", 0)
-        leverage = financial_data.get("leverage", financial_data.get("alavancagem", 0))
-        
-        # Log para debug do valor de alavancagem recebido
-        logger.info(f"Valor de alavancagem recebido no calculate_financial_risk: {leverage}")
+         
+        # Adicionar info dos valores financeiros
+        financial_info = {
+            "collateral": financial_data.get("total_collateral_usd", 0),
+            "debt": financial_data.get("total_debt_usd", 0),
+            "nav": financial_data.get("net_asset_value_usd", 0)
+        }
+
+        nav = financial_data.get("net_asset_value_usd", 0)
+        total_collateral = financial_data.get("total_collateral_usd", 0)
+        leverage = nav / total_collateral if total_collateral > 0 else 0
        
         # Verificar se é infinito ou NaN
         if hf == float('inf') or hf == float('nan') or hf <= 0:
@@ -656,13 +663,6 @@ class FinancialRiskService:
             alertas.append(f"HF crítico: {hf}")
         if leverage > 3.0:
             alertas.append(f"Alavancagem elevada: {leverage}x")
-        
-        # Adicionar info dos valores financeiros
-        financial_info = {
-            "collateral": financial_data.get("total_collateral_usd", 0),
-            "debt": financial_data.get("total_debt_usd", 0),
-            "nav": financial_data.get("net_asset_value_usd", 0)
-        }
         
         # Resposta completa
         return {
