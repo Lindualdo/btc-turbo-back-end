@@ -5,6 +5,8 @@ from typing import Dict, Any, Optional
 import os
 import json
 import time
+from web3 import Web3
+from decimal import Decimal
 
 # Configura o logger
 logging.basicConfig(level=logging.INFO)
@@ -14,12 +16,87 @@ class FinancialRiskService:
     def __init__(self):
         # Endereço da carteira será obtido da variável de ambiente WALLET_ADDRESS
         self.wallet_address = os.getenv("WALLET_ADDRESS", "").lower()
+        logger.info(f"Inicializando serviço de risco financeiro para carteira: {self.wallet_address}")
+        
+        # Configuração do Web3
+        self.w3 = None
+        self.initialize_web3()
+        
+        # Contratos AAVE v3 na Arbitrum
+        self.aave_pool_address = "0x794a61358D6845594F94dc1DB02A252b5b4814aD"  # Aave v3 Pool na Arbitrum
+        self.aave_pool_abi = self.load_abi("aave_pool")
+        self.aave_pool_contract = None
+        
+        if self.w3:
+            try:
+                self.aave_pool_contract = self.w3.eth.contract(
+                    address=Web3.to_checksum_address(self.aave_pool_address),
+                    abi=self.aave_pool_abi
+                )
+                logger.info("Contrato AAVE Pool inicializado com sucesso")
+            except Exception as e:
+                logger.error(f"Erro ao inicializar contrato AAVE: {str(e)}")
+        
+        # Cache
         self.cache = None
         self.last_fetch = None
         self.cache_duration = datetime.timedelta(minutes=10)  # Cache válido por 10 minutos
     
+    def initialize_web3(self):
+        """Inicializa a conexão Web3 com RPC público"""
+        try:
+            # Tenta vários RPC públicos disponíveis
+            rpc_endpoints = [
+                "https://arb1.arbitrum.io/rpc",
+                "https://arbitrum-one.public.blastapi.io",
+                "https://endpoints.omniatech.io/v1/arbitrum/one/public",
+                "https://arbitrum.blockpi.network/v1/rpc/public"
+            ]
+            
+            for rpc_url in rpc_endpoints:
+                try:
+                    logger.info(f"Tentando conectar ao RPC: {rpc_url}")
+                    self.w3 = Web3(Web3.HTTPProvider(rpc_url, request_kwargs={'timeout': 30}))
+                    if self.w3.is_connected():
+                        logger.info(f"Web3 conectado com sucesso: {rpc_url}")
+                        return
+                except Exception as e:
+                    logger.warning(f"Falha ao conectar a {rpc_url}: {str(e)}")
+            
+            logger.error("Não foi possível conectar a nenhum RPC público")
+            self.w3 = None
+        except Exception as e:
+            logger.error(f"Erro ao inicializar Web3: {str(e)}")
+            self.w3 = None
+    
+    def load_abi(self, name):
+        """Carrega ABI a partir de um arquivo ou retorna um ABI mínimo necessário"""
+        try:
+            # Retorna ABI mínimo necessário para as funções que usamos
+            if name == "aave_pool":
+                return [
+                    {
+                        "inputs": [{"internalType": "address", "name": "user", "type": "address"}],
+                        "name": "getUserAccountData",
+                        "outputs": [
+                            {"internalType": "uint256", "name": "totalCollateralBase", "type": "uint256"},
+                            {"internalType": "uint256", "name": "totalDebtBase", "type": "uint256"},
+                            {"internalType": "uint256", "name": "availableBorrowsBase", "type": "uint256"},
+                            {"internalType": "uint256", "name": "currentLiquidationThreshold", "type": "uint256"},
+                            {"internalType": "uint256", "name": "ltv", "type": "uint256"},
+                            {"internalType": "uint256", "name": "healthFactor", "type": "uint256"}
+                        ],
+                        "stateMutability": "view",
+                        "type": "function"
+                    }
+                ]
+            return []
+        except Exception as e:
+            logger.error(f"Erro ao carregar ABI {name}: {str(e)}")
+            return []
+    
     async def fetch_financial_data(self) -> Dict[str, Any]:
-        """Busca dados financeiros da carteira na AAVE v3 via APIs disponíveis"""
+        """Busca dados financeiros da carteira na AAVE v3 via Web3 ou APIs de fallback"""
         current_time = datetime.datetime.now()
         
         # Verifica se o cache é válido
@@ -41,6 +118,21 @@ class FinancialRiskService:
             
         try:
             logger.info(f"Buscando dados financeiros para carteira: {self.wallet_address}")
+            
+            # Primeiro tentar via Web3 diretamente (mais confiável)
+            if self.w3 and self.aave_pool_contract and self.w3.is_connected():
+                try:
+                    result = await self.get_data_from_web3()
+                    if result and "error" not in result:
+                        # Atualiza o cache
+                        self.cache = result
+                        self.last_fetch = current_time
+                        return result
+                except Exception as e:
+                    logger.warning(f"Falha ao obter dados via Web3: {str(e)}")
+            
+            # Se Web3 falhar, tentar via APIs
+            logger.info("Web3 falhou ou não está disponível, tentando APIs alternativas")
             
             # Tentar obter dados via Debank API
             data = self._get_debank_protocol_data(self.wallet_address)
@@ -115,6 +207,65 @@ class FinancialRiskService:
                 "error": str(e),
                 "timestamp": current_time.isoformat()
             }
+    
+    async def get_data_from_web3(self):
+        """Obtém dados diretamente dos contratos via Web3"""
+        try:
+            logger.info(f"Consultando contrato AAVE via Web3 para carteira: {self.wallet_address}")
+            
+            # Consulta os dados do usuário diretamente do contrato AAVE
+            user_data = self.aave_pool_contract.functions.getUserAccountData(
+                Web3.to_checksum_address(self.wallet_address)
+            ).call()
+            
+            # Decodifica os resultados (os valores estão em wei com 8 casas decimais)
+            decimals = 10**8  # AAVE v3 usa 8 casas decimais para valores em USD
+            
+            total_collateral_eth = Decimal(user_data[0]) / Decimal(decimals)
+            total_debt_eth = Decimal(user_data[1]) / Decimal(decimals)
+            available_borrows_eth = Decimal(user_data[2]) / Decimal(decimals)
+            current_liquidation_threshold = Decimal(user_data[3]) / Decimal(10000)  # em percentual
+            ltv = Decimal(user_data[4]) / Decimal(10000)  # em percentual
+            health_factor_raw = Decimal(user_data[5]) / Decimal(10**18)  # formato especial
+            
+            # Tratar health factor infinito
+            if health_factor_raw > Decimal(10**10) or total_debt_eth == 0:
+                health_factor = float('inf')
+            else:
+                health_factor = float(health_factor_raw)
+            
+            # Calcula o valor líquido dos ativos (NAV)
+            net_asset_value = float(total_collateral_eth - total_debt_eth)
+            
+            # Calcula a alavancagem (se collateral for 0, alavancagem é 1.0)
+            leverage = 1.0
+            if net_asset_value > 0 and float(total_collateral_eth) > 0:
+                leverage = float(total_collateral_eth) / net_asset_value
+            
+            # Note: valores já estão em USD na resposta do contrato AAVE v3
+            total_collateral_usd = float(total_collateral_eth)
+            total_debt_usd = float(total_debt_eth)
+            
+            # Não temos dados específicos de tokens, então assumimos que todo valor é WBTC
+            # Em uma implementação mais completa, precisaríamos consultar cada token separadamente
+            wbtc_supplied_value_usd = total_collateral_usd
+            
+            logger.info(f"Dados obtidos via Web3: HF={health_factor}, Collateral=${total_collateral_usd}, Debt=${total_debt_usd}")
+            
+            return {
+                "health_factor": health_factor,
+                "wbtc_supplied_value_usd": wbtc_supplied_value_usd,
+                "net_asset_value_usd": net_asset_value,
+                "total_collateral_usd": total_collateral_usd,
+                "total_debt_usd": total_debt_usd,
+                "ltv": float(ltv * 100),  # Convertido para percentual
+                "liquidation_threshold": float(current_liquidation_threshold * 100),  # Convertido para percentual
+                "source": "web3_direct"
+            }
+            
+        except Exception as e:
+            logger.warning(f"Falha ao obter dados via Web3: {str(e)}")
+            return {"error": f"Falha ao consultar contrato: {str(e)}"}
     
     def _get_aave_data_official_api(self, wallet_address):
         """Obter dados da AAVE v3 na Arbitrum usando a API oficial da AAVE"""
