@@ -70,25 +70,29 @@ class FinancialRiskService:
             
             # Verificar resposta
             if response.status_code != 200:
+                logger.error(f"Erro na API: código {response.status_code}, resposta: {response.text}")
                 raise Exception(f"API retornou código de status {response.status_code}")
             
             data = response.json()
+            logger.debug(f"Resposta da API: {data}")
             
             if data.get('data', {}).get('user') is None:
-                logger.warning("Posição não encontrada para o endereço da carteira")
+                logger.warning(f"Posição não encontrada para o endereço da carteira: {self.wallet_address}")
                 return {
                     "health_factor": 0,
                     "alavancagem": 0,
                     "supplied_asset_value": 0,
                     "net_asset_value": 0,
-                    "error": "Posição não encontrada",
+                    "error": f"Posição não encontrada para carteira {self.wallet_address}",
                     "timestamp": current_time.isoformat()
                 }
             
             user_data = data['data']['user']
             
             # Extrair Health Factor (dividir por 10^18)
-            health_factor = float(user_data.get('healthFactor', 0)) / 1e18 if user_data.get('healthFactor') else float('inf')
+            health_factor = float(user_data.get('healthFactor', 0)) if user_data.get('healthFactor') else 0
+            if health_factor > 0:
+                health_factor = health_factor / 1e18
             
             # Calcular valores para WBTC
             wbtc_balance = 0
@@ -102,8 +106,14 @@ class FinancialRiskService:
                     wbtc_usd_value = wbtc_balance * price_usd
             
             # Calcular NAV (Net Asset Value)
-            total_collateral = float(user_data.get('totalCollateralUSD', 0)) / 1e8
-            total_debt = float(user_data.get('totalDebtUSD', 0)) / 1e8
+            total_collateral = float(user_data.get('totalCollateralUSD', 0)) if user_data.get('totalCollateralUSD') else 0
+            total_debt = float(user_data.get('totalDebtUSD', 0)) if user_data.get('totalDebtUSD') else 0
+            
+            if total_collateral > 0:
+                total_collateral = total_collateral / 1e8
+            if total_debt > 0:
+                total_debt = total_debt / 1e8
+                
             nav = total_collateral - total_debt
             
             # Calcular alavancagem
