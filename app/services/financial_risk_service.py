@@ -304,13 +304,13 @@ class FinancialRiskService:
             
             # Processar health factor
             if "healthFactor" in data:
-                try:
-                    health_factor = float(data["healthFactor"])
-                    if health_factor == 0:
-                        health_factor = float('inf')
-                except (ValueError, TypeError):
-                    health_factor = float('inf')
-                    
+               try:
+                   health_factor = float(data["healthFactor"])
+                   if health_factor == 0:
+                      health_factor = float('inf')
+               except (ValueError, TypeError):
+                   health_factor = float('inf')
+                   
             # Processar net asset value (totalCollateralUSD - totalDebtUSD)
             total_collateral = float(data.get("totalCollateralUSD", 0))
             total_debt = float(data.get("totalDebtUSD", 0))
@@ -400,7 +400,7 @@ class FinancialRiskService:
         try:
             logger.info("Tentando método UI API da AAVE")
             # URL para dados do pool
-            pool_api_url = "https://app.aave.com/api/v1/ui-pool-data?networkId=42161&lendingPoolAddressProvider=0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb"
+            pool_api_url = "https://app.aave.com/api/v1/ui-pool-data?networkId=42161&lendingPoolAddressProvider=0xa97684ead0e402dC232d5A97795DF7ECBaB3CDdb"
             response = requests.get(pool_api_url, timeout=10)
             
             if response.status_code != 200:
@@ -410,7 +410,7 @@ class FinancialRiskService:
             pool_data = response.json()
             
             # URL para dados do usuário
-            user_api_url = f"https://app.aave.com/api/v1/user-data?networkId=42161&lendingPoolAddressProvider=0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb&userAddress={wallet_address}"
+            user_api_url = f"https://app.aave.com/api/v1/user-data?networkId=42161&lendingPoolAddressProvider=0xa97684ead0e402dC232d5A97795DF7ECBaB3CDdb&userAddress={wallet_address}"
             user_response = requests.get(user_api_url, timeout=10)
             
             if user_response.status_code != 200:
@@ -510,7 +510,7 @@ class FinancialRiskService:
                         
                         if token_symbol == "WBTC":
                             wbtc_supplied_value = usd_value
-                        
+                         
                         asset_details.append({
                             "symbol": token_symbol,
                             "balance": token_amount,
