@@ -601,7 +601,7 @@ class FinancialRiskService:
             hf_classification = "Sem empréstimos"
             hf_score = 0.0      # Sem risco
         else:
-            hf_display = hf     # Valor numérico para cálculos
+            hf_display = hf    # Valor numérico para cálculos
             
             # Cálculo do score para Health Factor (inversamente proporcional)
             if hf < 1.0:
