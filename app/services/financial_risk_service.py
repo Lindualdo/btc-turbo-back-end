@@ -305,7 +305,7 @@ class FinancialRiskService:
     def _get_debank_protocol_data(self, wallet_address):
         """
         Obter dados da AAVE v3 na Arbitrum via Debank API
-        Esta API é pública e confíável, sendo usada por várias carteiras e aplicações
+        Esta API é pública e confiável, sendo usada por várias carteiras e aplicações
         """
         try:
             logger.info("Tentando método Debank API")
@@ -445,7 +445,7 @@ class FinancialRiskService:
         if hf == float('inf') or hf == float('nan') or hf <= 0:
             hf_display = "∞"  # Para apresentação
             hf_classification = "Sem empréstimos"
-            hf_score = 0.0    # Sem risco
+            hf_score = 0.0     # Sem risco
         else:
             hf_display = hf    # Valor numérico para cálculos
             
