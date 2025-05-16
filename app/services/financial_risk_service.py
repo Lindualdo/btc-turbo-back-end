@@ -1,132 +1,134 @@
-from bs4 import BeautifulSoup
-import httpx
+import requests
 import datetime
-import re
-from typing import Dict, Any, List, Optional
+import logging
+from typing import Dict, Any, Optional
+import os
+
+# Configura o logger
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class FinancialRiskService:
     def __init__(self):
-        self.defi_address = "0x2A81EdB7C75BfdCcB7a156de3152C61D00247d62"
-        self.defisim_url = f"https://defisim.xyz/?address={self.defi_address}"
+        # Endereço da carteira será obtido da variável de ambiente WALLET_ADDRESS
+        self.wallet_address = os.getenv("WALLET_ADDRESS", "").lower()
+        self.subgraph_url = "https://api.thegraph.com/subgraphs/name/aave/protocol-v3-arbitrum"
         self.cache = None
         self.last_fetch = None
         self.cache_duration = datetime.timedelta(minutes=10)  # Cache válido por 10 minutos
     
     async def fetch_financial_data(self) -> Dict[str, Any]:
-        """Executa o scraping dos dados financeiros do DeFiSim"""
+        """Busca dados financeiros da carteira na AAVE v3 via The Graph API"""
         current_time = datetime.datetime.now()
         
         # Verifica se o cache é válido
         if self.cache and self.last_fetch and (current_time - self.last_fetch < self.cache_duration):
+            logger.info("Retornando dados financeiros do cache")
             return self.cache
+        
+        # Verifica se o endereço da carteira está definido
+        if not self.wallet_address:
+            logger.error("Endereço de carteira não definido na variável de ambiente WALLET_ADDRESS")
+            return {
+                "health_factor": 0,
+                "alavancagem": 0,
+                "supplied_asset_value": 0,
+                "net_asset_value": 0,
+                "error": "Endereço de carteira não configurado",
+                "timestamp": current_time.isoformat()
+            }
             
         try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                print(f"Fazendo requisição para: {self.defisim_url}")
-                response = await client.get(self.defisim_url)
-                response.raise_for_status()
-                
-                # Parsear o HTML com BeautifulSoup
-                soup = BeautifulSoup(response.text, 'html.parser')
-                html_content = str(soup)
-                
-                # Extração dos valores diretamente do HTML
-                health_factor = None  # Vai ser atualizado abaixo
-                supplied_value = None
-                net_asset_value = None
-                
-                # 1. Buscar o Health Factor diretamente pelo data-testid
-                try:
-                    health_factor_div = soup.find("div", {"data-testid": "health-factor"})
-                    if health_factor_div:
-                        # Extrair o valor numérico usando regex
-                        text_content = health_factor_div.text.strip()
-                        hf_match = re.search(r'[\d.]+', text_content)
-                        if hf_match:
-                            health_factor = float(hf_match.group())
-                            print(f"Health Factor encontrado via data-testid: {health_factor}")
-                except Exception as e:
-                    print(f"Erro ao buscar Health Factor por data-testid: {e}")
-                
-                # 2. Se não encontrou, buscar em classes específicas do Mantine
-                if not health_factor:
-                    try:
-                        # Buscar em todos os spans do Mantine que podem conter valores
-                        mantine_texts = soup.find_all("span", {"class": lambda x: x and "mantine-Text-root" in x})
-                        for text_elem in mantine_texts:
-                            text = text_elem.text.strip()
-                            # Verificar se é apenas um número (possível health factor)
-                            if re.match(r'^[\d.]+$', text):
-                                health_factor = float(text)
-                                print(f"Health Factor encontrado via classes Mantine: {health_factor}")
-                                break
-                    except Exception as e:
-                        print(f"Erro ao buscar Health Factor por classes Mantine: {e}")
-                
-                # 3. Método mais genérico - buscar tabelas ou grid de dados
-                if not health_factor or not supplied_value or not net_asset_value:
-                    try:
-                        # Buscar em todas as divs que possam conter grid de dados
-                        data_items = soup.find_all("div", {"class": lambda x: x and ("grid" in x or "card" in x)})
-                        for item in data_items:
-                            item_text = item.text.strip()
-                            
-                            # Buscar Health Factor
-                            if not health_factor and "Health Factor" in item_text:
-                                hf_match = re.search(r'[\d.]+', item_text.split("Health Factor")[-1])
-                                if hf_match:
-                                    health_factor = float(hf_match.group())
-                                    print(f"Health Factor encontrado via grid: {health_factor}")
-                            
-                            # Buscar Supplied Asset Value
-                            if not supplied_value and "Supplied Asset" in item_text:
-                                val_match = re.search(r'\$[\d,]+(?:\.\d+)?', item_text)
-                                if val_match:
-                                    supplied_value = float(val_match.group().replace("$", "").replace(",", ""))
-                                    print(f"Supplied Asset Value encontrado: {supplied_value}")
-                            
-                            # Buscar Net Asset Value
-                            if not net_asset_value and "Net Asset" in item_text:
-                                val_match = re.search(r'\$[\d,]+(?:\.\d+)?', item_text)
-                                if val_match:
-                                    net_asset_value = float(val_match.group().replace("$", "").replace(",", ""))
-                                    print(f"Net Asset Value encontrado: {net_asset_value}")
-                    except Exception as e:
-                        print(f"Erro ao buscar dados via listas/grids: {e}")
-                
-                # 4. Último recurso - salvar o HTML completo para diagnóstico
-                if not health_factor or not supplied_value or not net_asset_value:
-                    print("Não foi possível encontrar todos os valores necessários")
-                    if not health_factor:
-                        print("Não foi possível encontrar Health Factor, usando valor padrão")
-                        health_factor = 0  # Valor zero para indicar falha na extração
-                    if not supplied_value:
-                        print("Não foi possível encontrar Supplied Asset Value, usando valor padrão")
-                        supplied_value = 0  # Valor zero para indicar falha na extração
-                    if not net_asset_value:
-                        print("Não foi possível encontrar Net Asset Value, usando valor padrão")
-                        net_asset_value = 0  # Valor zero para indicar falha na extração
-                
-                # Cálculo da alavancagem
-                leverage = supplied_value / net_asset_value if net_asset_value > 0 else 0  # Zero em caso de erro
-                
-                # Preparar resposta
-                data = {
-                    "health_factor": health_factor,
-                    "alavancagem": round(leverage, 2),
-                    "supplied_asset_value": supplied_value,
-                    "net_asset_value": net_asset_value,
+            logger.info(f"Buscando dados financeiros para carteira: {self.wallet_address}")
+            
+            # Consulta GraphQL para AAVE v3 Arbitrum
+            query = """
+            {
+              user(id: "%s") {
+                healthFactor
+                totalCollateralUSD
+                totalDebtUSD
+                reserves(where: {usageAsCollateralEnabledOnUser: true}) {
+                  reserve {
+                    symbol
+                    decimals
+                    price {
+                      priceInUSD
+                    }
+                  }
+                  currentATokenBalance
+                }
+              }
+            }
+            """ % self.wallet_address
+            
+            # Enviar requisição POST
+            response = requests.post(
+                self.subgraph_url,
+                json={'query': query}
+            )
+            
+            # Verificar resposta
+            if response.status_code != 200:
+                raise Exception(f"API retornou código de status {response.status_code}")
+            
+            data = response.json()
+            
+            if data.get('data', {}).get('user') is None:
+                logger.warning("Posição não encontrada para o endereço da carteira")
+                return {
+                    "health_factor": 0,
+                    "alavancagem": 0,
+                    "supplied_asset_value": 0,
+                    "net_asset_value": 0,
+                    "error": "Posição não encontrada",
                     "timestamp": current_time.isoformat()
                 }
-                
-                # Atualiza o cache
-                self.cache = data
-                self.last_fetch = current_time
-                
-                return data
-                
+            
+            user_data = data['data']['user']
+            
+            # Extrair Health Factor (dividir por 10^18)
+            health_factor = float(user_data.get('healthFactor', 0)) / 1e18 if user_data.get('healthFactor') else float('inf')
+            
+            # Calcular valores para WBTC
+            wbtc_balance = 0
+            wbtc_usd_value = 0
+            
+            for reserve in user_data.get('reserves', []):
+                if reserve['reserve']['symbol'] == 'WBTC':
+                    decimals = int(reserve['reserve']['decimals'])
+                    price_usd = float(reserve['reserve']['price']['priceInUSD'])
+                    wbtc_balance = float(reserve['currentATokenBalance']) / (10 ** decimals)
+                    wbtc_usd_value = wbtc_balance * price_usd
+            
+            # Calcular NAV (Net Asset Value)
+            total_collateral = float(user_data.get('totalCollateralUSD', 0)) / 1e8
+            total_debt = float(user_data.get('totalDebtUSD', 0)) / 1e8
+            nav = total_collateral - total_debt
+            
+            # Calcular alavancagem
+            leverage = total_collateral / nav if nav > 0 else 0
+            
+            # Resultado
+            data = {
+                "health_factor": health_factor,
+                "alavancagem": round(leverage, 2),
+                "supplied_asset_value": wbtc_usd_value if wbtc_usd_value > 0 else total_collateral,
+                "net_asset_value": nav,
+                "total_collateral_usd": total_collateral,
+                "total_debt_usd": total_debt,
+                "timestamp": current_time.isoformat()
+            }
+            
+            # Atualiza o cache
+            self.cache = data
+            self.last_fetch = current_time
+            
+            logger.info(f"Dados financeiros obtidos com sucesso: HF={health_factor}, NAV=${nav}")
+            return data
+            
         except Exception as e:
-            print(f"Erro ao fazer scraping: {e}")
+            logger.error(f"Erro ao buscar dados financeiros: {e}")
             # Em caso de erro, tenta usar o cache antigo se disponível
             if self.cache:
                 return self.cache
