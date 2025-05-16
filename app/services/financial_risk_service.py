@@ -400,7 +400,7 @@ class FinancialRiskService:
         try:
             logger.info("Tentando método UI API da AAVE")
             # URL para dados do pool
-            pool_api_url = "https://app.aave.com/api/v1/ui-pool-data?networkId=42161&lendingPoolAddressProvider=0xa97684ead0e402dC232d5A9779DDF7ECBaB3CDdb"
+            pool_api_url = "https://app.aave.com/api/v1/ui-pool-data?networkId=42161&lendingPoolAddressProvider=0xa97684ead0e402dC232d5A9779DDf7ECBaB3CDdb"
             response = requests.get(pool_api_url, timeout=10)
             
             if response.status_code != 200:
@@ -410,7 +410,7 @@ class FinancialRiskService:
             pool_data = response.json()
             
             # URL para dados do usuário
-            user_api_url = f"https://app.aave.com/api/v1/user-data?networkId=42161&lendingPoolAddressProvider=0xa97684ead0e402dC232d5A9779DDF7ECBaB3CDdb&userAddress={wallet_address}"
+            user_api_url = f"https://app.aave.com/api/v1/user-data?networkId=42161&lendingPoolAddressProvider=0xa97684ead0e402dC232d5A9779DDf7ECBaB3CDdb&userAddress={wallet_address}"
             user_response = requests.get(user_api_url, timeout=10)
             
             if user_response.status_code != 200:
@@ -537,7 +537,7 @@ class FinancialRiskService:
                 # Vamos tentar obter health factor
                 try:
                     # Usando a API alternativa da AAVE só para o healthFactor
-                    hf_url = f"https://aave-api-v2.aave.com/data/users/{wallet_address}/arbitrum/0xa97684ead0e402dc232d5a9779953df7ecbab3cdb"
+                    hf_url = f"https://aave-api-v2.aave.com/data/users/{wallet_address}/arbitrum/0xa97684ead0e402dc232d5a97799953df7ecbab3cdb"
                     hf_response = requests.get(hf_url, timeout=10)
                     
                     if hf_response.status_code == 200:
@@ -664,7 +664,7 @@ class FinancialRiskService:
         financial_info = {
             "collateral": financial_data.get("total_collateral_usd", 0),
             "debt": financial_data.get("total_debt_usd", 0),
-            "nav": financial_data.get("net_asset_value", 0)  # Usa o valor correto de NAV
+            "nav": financial_data.get("net_asset_value", 0)
         }
         
         # Resposta completa
