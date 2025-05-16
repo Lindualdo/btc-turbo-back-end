@@ -171,7 +171,7 @@ class FinancialRiskService:
             # Constrói o resultado
             result = {
                 "health_factor": round(health_factor, 2),
-                "alavancagem": 2,
+                "alavancagem": round(leverage, 2),
                 "supplied_asset_value": supplied_asset_value,
                 "net_asset_value": nav,
                 "total_collateral_usd": total_collateral,
