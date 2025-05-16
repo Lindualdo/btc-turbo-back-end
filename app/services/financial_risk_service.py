@@ -590,7 +590,7 @@ class FinancialRiskService:
         """Calcula o score de risco financeiro baseado nos indicadores"""
         
         hf = financial_data.get("health_factor", 0)
-        leverage = financial_data.get("alavancagem", 0)
+        leverage = financial_data.get("leverage", financial_data.get("alavancagem", 0))
         
         # Log para debug do valor de alavancagem recebido
         logger.info(f"Valor de alavancagem recebido no calculate_financial_risk: {leverage}")
