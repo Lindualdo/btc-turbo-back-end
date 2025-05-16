@@ -172,6 +172,7 @@ class FinancialRiskService:
             result = {
                 "health_factor": round(health_factor, 2),
                 "alavancagem": round(leverage, 2),
+                "leverage": round(leverage, 2),     # NOVA CHAVE adicionada
                 "supplied_asset_value": supplied_asset_value,
                 "net_asset_value": nav,
                 "total_collateral_usd": total_collateral,
@@ -589,8 +590,13 @@ class FinancialRiskService:
     def calculate_financial_risk(self, financial_data: Dict[str, Any]) -> Dict[str, Any]:
         """Calcula o score de risco financeiro baseado nos indicadores"""
         
+        # Log para debug do financial_data completo
+        logger.debug(f"financial_data recebido: {financial_data}")
+        logger.debug(f"Chaves disponíveis: {list(financial_data.keys())}")
+        
+        # Primeiro tenta obter com a chave "leverage" (nova), depois tenta "alavancagem"
         hf = financial_data.get("health_factor", 0)
-        leverage = financial_data.get("alavancagem", 0)
+        leverage = financial_data.get("leverage", financial_data.get("alavancagem", 0))
         
         # Log para debug do valor de alavancagem recebido
         logger.info(f"Valor de alavancagem recebido no calculate_financial_risk: {leverage}")
@@ -617,7 +623,7 @@ class FinancialRiskService:
                hf_score = 5.0   # Risco moderado
                hf_classification = "Moderado"
             elif hf < 3.0:
-               hf_score = 3.0   # Risco baixo
+                hf_score = 3.0   # Risco baixo
                hf_classification = "Baixo"
             else:
                 hf_score = 1.0   # Risco mínimo
