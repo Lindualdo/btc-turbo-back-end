@@ -58,8 +58,8 @@ class FinancialRiskService:
                     logger.info(f"Tentando conectar ao RPC: {rpc_url}")
                     self.w3 = Web3(Web3.HTTPProvider(rpc_url, request_kwargs={'timeout': 30}))
                     if self.w3.is_connected():
-                        logger.info(f"Web3 conectado com sucesso: {rpc_url}")
-                        return
+                      logger.info(f"Web3 conectado com sucesso: {rpc_url}")
+                      return
                 except Exception as e:
                     logger.warning(f"Falha ao conectar a {rpc_url}: {str(e)}")
             
@@ -99,12 +99,10 @@ class FinancialRiskService:
         """Busca dados financeiros da carteira na AAVE v3 via Web3 ou APIs de fallback"""
         current_time = datetime.datetime.now()
         
-        # Verifica se o cache é válido
-        if self.cache and self.last_fetch and (current_time - self.last_fetch < self.cache_duration):
-            logger.info("Retornando dados financeiros do cache")
-            return self.cache
+        # Remover verificação de cache para sempre buscar dados atualizados
+        logger.info("Buscando dados financeiros atualizados")
         
-        # Verifica se o endereço da carteira está definido
+        # Verificar se o endereço da carteira está definido
         if not self.wallet_address:
             logger.error("Endereço de carteira não definido na variável de ambiente WALLET_ADDRESS")
             return {
@@ -124,7 +122,7 @@ class FinancialRiskService:
                 try:
                     result = await self.get_data_from_web3()
                     if result and "error" not in result:
-                        # Atualiza o cache
+                        # Atualiza o cache (para possível uso em caso de falha futura)
                         self.cache = result
                         self.last_fetch = current_time
                         return result
@@ -144,8 +142,7 @@ class FinancialRiskService:
             
             if "error" in data:
                 logger.error(f"Erro ao obter dados financeiros: {data.get('error')}")
-                if self.cache:  # Use o cache se disponível
-                    return self.cache
+                # Não usamos cache em caso de erro para sempre tentar obter dados atualizados
                 return {
                     "health_factor": 0,
                     "alavancagem": 0,
@@ -192,7 +189,7 @@ class FinancialRiskService:
             if "asset_details" in data:
                 result["asset_details"] = data["asset_details"]
             
-            # Atualiza o cache
+            # Atualiza o cache (para possível uso em caso de falha futura)
             self.cache = result
             self.last_fetch = current_time
             
@@ -201,10 +198,7 @@ class FinancialRiskService:
             
         except Exception as e:
             logger.exception(f"Erro ao buscar dados financeiros: {e}")
-            # Em caso de erro, tenta usar o cache antigo se disponível
-            if self.cache:
-                return self.cache
-            # Ou retorna valores de fallback
+            # Em caso de erro, não usamos o cache para garantir que sempre tente dados atualizados
             return {
                 "health_factor": 0,
                 "alavancagem": 0,
@@ -304,11 +298,11 @@ class FinancialRiskService:
             
             # Processar health factor
             if "healthFactor" in data:
-                try:
+               try:
                     health_factor = float(data["healthFactor"])
                     if health_factor == 0:
-                       health_factor = float('inf')
-                except (ValueError, TypeError):
+                     health_factor = float('inf')
+               except (ValueError, TypeError):
                     health_factor = float('inf')
                     
             # Processar net asset value (totalCollateralUSD - totalDebtUSD)
@@ -422,7 +416,7 @@ class FinancialRiskService:
             # Extrair health factor
             health_factor = float('inf')
             if user_data.get("healthFactor") and user_data["healthFactor"] != "0":
-                health_factor = float(user_data["healthFactor"])
+               health_factor = float(user_data["healthFactor"])
                 
             # Extrair dados de colateral e dívidas
             total_collateral_usd = float(user_data.get("totalCollateralUSD", 0))
