@@ -600,8 +600,8 @@ class FinancialRiskService:
 
         nav = financial_data.get("net_asset_value_usd", 0)
         total_collateral = financial_data.get("total_collateral_usd", 0)
-        leverage = nav / total_collateral if total_collateral > 0 else 0
-       
+        leverage = total_collateral / nav if nav > 0 else 0
+        
         # Verificar se é infinito ou NaN
         if hf == float('inf') or hf == float('nan') or hf <= 0:
             hf_display = "∞"  # Para apresentação
