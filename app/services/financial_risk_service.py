@@ -303,8 +303,8 @@ class FinancialRiskService:
                     if health_factor == 0:
                      health_factor = float('inf')
                 except (ValueError, TypeError):
-                     health_factor = float('inf')
-                     
+                    health_factor = float('inf')
+                    
             # Processar net asset value (totalCollateralUSD - totalDebtUSD)
             total_collateral = float(data.get("totalCollateralUSD", 0))
             total_debt = float(data.get("totalDebtUSD", 0))
@@ -531,7 +531,7 @@ class FinancialRiskService:
                 # Vamos tentar obter health factor
                 try:
                     # Usando a API alternativa da AAVE só para o healthFactor
-                    hf_url = f"https://aave-api-v2.aave.com/data/users/{wallet_address}/arbitrum/0xa97684ead0e402dc232d5a97799953df7ecbab3cdb"
+                    hf_url = f"https://aave-api-v2.aave.com/data/users/{wallet_address}/arbitrum/0xa97684ead0e402dc232d5a9799953df7ecbab3cdb"
                     hf_response = requests.get(hf_url, timeout=10)
                     
                     if hf_response.status_code == 200:
