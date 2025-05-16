@@ -58,8 +58,8 @@ class FinancialRiskService:
                     logger.info(f"Tentando conectar ao RPC: {rpc_url}")
                     self.w3 = Web3(Web3.HTTPProvider(rpc_url, request_kwargs={'timeout': 30}))
                     if self.w3.is_connected():
-                      logger.info(f"Web3 conectado com sucesso: {rpc_url}")
-                      return
+                        logger.info(f"Web3 conectado com sucesso: {rpc_url}")
+                        return
                 except Exception as e:
                     logger.warning(f"Falha ao conectar a {rpc_url}: {str(e)}")
             
@@ -189,7 +189,7 @@ class FinancialRiskService:
             if "asset_details" in data:
                 result["asset_details"] = data["asset_details"]
             
-            # Atualiza o cache (para possível uso em caso de falha futura)
+            # Atualiza o cache (apenas para casos de falha futura)
             self.cache = result
             self.last_fetch = current_time
             
@@ -298,13 +298,13 @@ class FinancialRiskService:
             
             # Processar health factor
             if "healthFactor" in data:
-               try:
+                try:
                     health_factor = float(data["healthFactor"])
                     if health_factor == 0:
                      health_factor = float('inf')
-               except (ValueError, TypeError):
-                    health_factor = float('inf')
-                    
+                except (ValueError, TypeError):
+                     health_factor = float('inf')
+                     
             # Processar net asset value (totalCollateralUSD - totalDebtUSD)
             total_collateral = float(data.get("totalCollateralUSD", 0))
             total_debt = float(data.get("totalDebtUSD", 0))
