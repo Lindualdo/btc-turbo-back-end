@@ -604,7 +604,7 @@ class FinancialRiskService:
             hf_classification = "Sem empréstimos"
             hf_score = 0.0     # Sem risco
         else:
-            hf_display = hf    # Valor numérico para cálculos
+            hf_display = hf     # Valor numérico para cálculos
             
             # Cálculo do score para Health Factor (inversamente proporcional)
             if hf < 1.0:
@@ -664,7 +664,7 @@ class FinancialRiskService:
         financial_info = {
             "collateral": financial_data.get("total_collateral_usd", 0),
             "debt": financial_data.get("total_debt_usd", 0),
-            "nav": financial_data.get("net_asset_value", 0)
+            "nav": financial_data.get("net_asset_value", 0)  # Usa o valor correto de NAV
         }
         
         # Resposta completa
