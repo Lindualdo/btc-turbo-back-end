@@ -152,75 +152,43 @@ app.include_router(analise_tecnica_emas.router, prefix="/api/v1")
 ## 🗓️ Próxima implementação
 
 - 🌟 `analise-riscos`: Estrutural BTC
+--Incluir a analise financeira na analise de riscos e considerar o Score no calculo final e alertas
 
 ---
 
-# 📌 v1.0.14 - Analise de Riscos - Riscos Financeiro Direto
+# 📌 v1.0.15 - Analise de Riscos - Riscos Financeiro Direto
 
 Completei com sucesso a implementação do sistema de análise de risco financeiro. Veja o status atual:
+A versão anterior está com erro, e dados fixo, não funcionou o Scraping
+foi tentado varias formas de conseguir os dados na AAVE sem sucesso
+mas essa versão agora está buscndo e calculando corretamente
+abaixo está o resultado retornado: dados de Exemplo:
 
-## ✅ Implementações Concluídas:
-
-### 1. Serviço de Risco Financeiro
-- O arquivo `financial_risk_service.py` já estava implementado no repositório.
-- Contém a lógica para scraping dos dados do DeFiSim.
-- Implementa o cálculo de risco baseado em Health Factor e Alavancagem.
-
-### 2. Endpoint de Risco Financeiro
-- O arquivo `risco_financeiro.py` já estava implementado.
-- Fornece análise detalhada dos indicadores financeiros.
-- Retorna os dados de Health Factor e Alavancagem em formato estruturado.
-
-### 3. Endpoint de Análise de Riscos Consolidada
-- Implementei o arquivo `analise_riscos.py`.
-- Integra o risco financeiro com outras categorias de risco.
-- Calcula o score ponderado final e fornece classificação de risco.
-- Identifica automaticamente os componentes de maior risco.
-
----
-
-## 🔍 Visão Geral da Solução:
-
-### Análise de Risco Financeiro Dedicada:
-- Endpoint `Estrutural BTCEstrutural BTC` fornece análise detalhada.
-- Dados extraídos via web scraping do DeFiSim.
-- Health Factor e Alavancagem calculados com ponderação apropriada.
-
-### Análise de Riscos Consolidada:
-- Endpoint `/analise-riscos` integra todas as categorias de risco.
-- Risco financeiro incorporado ao resultado final.
-- Formato de resposta simplificado e direto para consumo.
-
-### Sistema Robusto:
-- Tratamento de erros para falhas de scraping.
-- Sistema de cache para minimizar requisições externas.
-- Classificações claras com descrições e emojis para facilitar interpretação.
-
----
-
-## 📊 Exemplo de Resposta de `/analise-riscos`:
-
-```json
 {
-  "risco_final": {
-    "score": 3.41,
-    "classificacao": "✅ Risco Controlado",
-    "descricao": "Risco administrável, monitorar regularmente."
-  },
-  "blocos_risco": [
-    {
-      "categoria": "Financeiro Direto",
-      "score": 8.5,
-      "peso": 0.35,
-      "principais_alertas": [
+    "categoria": "Financeiro Direto",
+    "score": 8.6,
+    "peso": 0.35,
+    "principais_alertas": [
         "HF crítico: 1.13",
-        "Alavancagem elevada: 3.2x"
-      ]
+        "Alavancagem elevada: 3.24x"
+    ],
+    "financial_overview": {
+        "collateral": 495450.26043604,
+        "debt": 342416.4245696,
+        "nav": 153033.83586644
+    },
+    "detalhes": {
+        "health_factor": {
+            "valor": 1.13,
+            "classificacao": "Crítico",
+            "score": 9.0,
+            "peso": 0.8
+        },
+        "alavancagem": {
+            "valor": 3.24,
+            "classificacao": "Elevada",
+            "score": 7.0,
+            "peso": 0.2
+        }
     }
-    // Outras categorias de risco...
-  ],
-  "resumo": {
-    "alerta": "Monitorar componentes com maior peso de risco: Financeiro Direto e Técnico."
-  }
 }
-```
