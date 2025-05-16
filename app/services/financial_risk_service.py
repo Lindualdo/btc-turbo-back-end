@@ -531,7 +531,7 @@ class FinancialRiskService:
                 # Vamos tentar obter health factor
                 try:
                     # Usando a API alternativa da AAVE só para o healthFactor
-                    hf_url = f"https://aave-api-v2.aave.com/data/users/{wallet_address}/arbitrum/0xa97684ead0e402dc232d5a979953df7ecbab3cdb"
+                    hf_url = f"https://aave-api-v2.aave.com/data/users/{wallet_address}/arbitrum/0xa97684ead0e402dc232d5a9799df7ecbab3cddb"
                     hf_response = requests.get(hf_url, timeout=10)
                     
                     if hf_response.status_code == 200:
@@ -658,7 +658,7 @@ class FinancialRiskService:
         financial_info = {
             "collateral": financial_data.get("total_collateral_usd", 0),
             "debt": financial_data.get("total_debt_usd", 0),
-            "nav": financial_data.get("net_asset_value", 0)  # Corrigido o nome da variável para obter o valor de NAV
+            "nav": financial_data.get("net_asset_value_usd", 0)  # Corrigido para usar a chave correta
         }
         
         # Resposta completa
