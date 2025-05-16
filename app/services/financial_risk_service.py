@@ -268,7 +268,7 @@ class FinancialRiskService:
             return {"error": f"Falha ao consultar contrato: {str(e)}"}
     
     def _get_aave_data_official_api(self, wallet_address):
-        """Obter dados da AAVE v3 na Arbitrum usando a API oficial da AAVE"""
+        """Obter dados da AAVE v3 na Arbitrum usando a API official da AAVE"""
         try:
             logger.info("Tentando método API oficial v1 da AAVE")
             # ID da rede Arbitrum
@@ -298,11 +298,11 @@ class FinancialRiskService:
             
             # Processar health factor
             if "healthFactor" in data:
-                try:
+               try:
                     health_factor = float(data["healthFactor"])
                     if health_factor == 0:
                      health_factor = float('inf')
-                except (ValueError, TypeError):
+               except (ValueError, TypeError):
                     health_factor = float('inf')
                     
             # Processar net asset value (totalCollateralUSD - totalDebtUSD)
@@ -591,12 +591,15 @@ class FinancialRiskService:
         
         hf = financial_data.get("health_factor", 0)
         leverage = financial_data.get("alavancagem", 0)
+        
+        # Log para debug do valor de alavancagem recebido
+        logger.info(f"Valor de alavancagem recebido no calculate_financial_risk: {leverage}")
        
         # Verificar se é infinito ou NaN
         if hf == float('inf') or hf == float('nan') or hf <= 0:
             hf_display = "∞"  # Para apresentação
             hf_classification = "Sem empréstimos"
-            hf_score = 0.0     # Sem risco
+            hf_score = 0.0      # Sem risco
         else:
             hf_display = hf     # Valor numérico para cálculos
             
@@ -605,17 +608,17 @@ class FinancialRiskService:
                 hf_score = 10.0  # Risco máximo
                 hf_classification = "Liquidação Iminente"
             elif hf < 1.2:
-                hf_score = 9.0   # Risco crítico
-                hf_classification = "Crítico"
+               hf_score = 9.0   # Risco crítico
+               hf_classification = "Crítico"
             elif hf < 1.5:
-                hf_score = 7.0   # Risco elevado
-                hf_classification = "Elevado"
+               hf_score = 7.0   # Risco elevado
+               hf_classification = "Elevado"
             elif hf < 2.0:
-                hf_score = 5.0   # Risco moderado
-                hf_classification = "Moderado"
+               hf_score = 5.0   # Risco moderado
+               hf_classification = "Moderado"
             elif hf < 3.0:
-                hf_score = 3.0   # Risco baixo
-                hf_classification = "Baixo"
+               hf_score = 3.0   # Risco baixo
+               hf_classification = "Baixo"
             else:
                 hf_score = 1.0   # Risco mínimo
                 hf_classification = "Seguro"
