@@ -163,7 +163,7 @@ class FinancialRiskService:
             total_debt = data.get("total_debt_usd", 0)
             nav = total_collateral - total_debt
             
-            # Calcular alavancagem
+            # Calcular alavancagem (fórmula corrigida)
             leverage = 1.0
             if nav > 0 and total_collateral > 0:
                 leverage = total_collateral / nav
@@ -179,7 +179,13 @@ class FinancialRiskService:
                 "net_asset_value": nav,
                 "total_collateral_usd": total_collateral,
                 "total_debt_usd": total_debt,
-                "timestamp": current_time.isoformat()
+                "timestamp": current_time.isoformat(),
+                "financial_metrics": {
+                    "net_asset_value": nav,
+                    "total_collateral": total_collateral,
+                    "total_debt": total_debt,
+                    "leverage": round(leverage, 2)
+                }
             }
             
             # Adiciona detalhes de assets se disponíveis
@@ -237,7 +243,7 @@ class FinancialRiskService:
             # Calcula o valor líquido dos ativos (NAV)
             net_asset_value = float(total_collateral_eth - total_debt_eth)
             
-            # Calcula a alavancagem (se collateral for 0, alavancagem é 1.0)
+            # Calcula a alavancagem corrigida
             leverage = 1.0
             if net_asset_value > 0 and float(total_collateral_eth) > 0:
                 leverage = float(total_collateral_eth) / net_asset_value
@@ -654,12 +660,20 @@ class FinancialRiskService:
         if leverage > 3.0:
             alertas.append(f"Alavancagem elevada: {leverage}x")
         
+        # Adicionar info dos valores financeiros
+        financial_info = {
+            "collateral": financial_data.get("total_collateral_usd", 0),
+            "debt": financial_data.get("total_debt_usd", 0),
+            "nav": financial_data.get("net_asset_value", 0)
+        }
+        
         # Resposta completa
         return {
             "categoria": "Financeiro Direto",
             "score": round(final_score, 2),
             "peso": 0.35,  # Peso desta categoria no risco global
             "principais_alertas": alertas,
+            "financial_overview": financial_info,
             "detalhes": {
                 "health_factor": {
                     "valor": hf_display,
