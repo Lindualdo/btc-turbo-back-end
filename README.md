@@ -4,6 +4,39 @@
 
 Desenvolver um sistema inteligente para maximizar lucros e mitigar riscos em operações de Hold Alavancado de Bitcoin (BTC) na Plataforma AAVE da rede Arbitrum. O projeto visa integrar análises de força de tendência, riscos técnicos, financeiros, estruturais, macroeconômicos e de plataforma para fornecer orientações estratégicas e auxiliar usuários em suas decisões de investimento.
 
+## 📌 Última versão: v1.0.15 - Riscos Financeiro Direto
+
+```json
+{
+    "categoria": "Financeiro Direto",
+    "score": 8.6,
+    "peso": 0.35,
+    "principais_alertas": [
+        "HF crítico: 1.13",
+        "Alavancagem elevada: 3.24x"
+    ],
+    "financial_overview": {
+        "collateral": 495450.26043604,
+        "debt": 342416.4245696,
+        "nav": 153033.83586644
+    },
+    "detalhes": {
+        "health_factor": {
+            "valor": 1.13,
+            "classificacao": "Crítico",
+            "score": 9.0,
+            "peso": 0.8
+        },
+        "alavancagem": {
+            "valor": 3.24,
+            "classificacao": "Elevada",
+            "score": 7.0,
+            "peso": 0.2
+        }
+    }
+}
+```
+
 ## 🏗️ Arquitetura do Projeto (Pastas e Arquivos)
 
 ```
