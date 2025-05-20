@@ -45,15 +45,15 @@ def analisar_timeframe(preco, emas):
     score = round((score_raw / 20) * 10, 1)
 
     if score >= 8.1:
-        classificacao = "Tendência de Alta muito forte"
+        classificacao = "Muito forte"
     elif score >= 6.1:
-        classificacao = "Tendência de Alta forte"
+        classificacao = "Forte"
     elif score >= 4.1:
-        classificacao = "Tendência de Alta moderada"
+        classificacao = "Moderada"
     elif score >= 2.1:
-        classificacao = "Tendência de alta fraca"
+        classificacao = "Fraca"
     else:
-        classificacao = "Final da tendêcia de Alta"
+        classificacao = "Final da tendêcia"
 
     observacao = ", ".join(observacoes) if observacoes else "cenário ideal: preço acima e EMAs alinhadas"
 
@@ -81,15 +81,15 @@ def consolidar_scores(scores_dict):
     score_final = round(total, 1)
 
     if score >= 8.1:
-        classificacao = "Tendência de Alta muito forte"
+        classificacao = "Muito forte"
     elif score >= 6.1:
-        classificacao = "Tendência de Alta forte"
+        classificacao = "Forte"
     elif score >= 4.1:
-        classificacao = "Tendência de Alta moderada"
+        classificacao = "Moderada"
     elif score >= 2.1:
-        classificacao = "Tendência de alta fraca"
+        classificacao = "Fraca"
     else:
-        classificacao = "Final da tendêcia de Alta"
+        classificacao = "Final da tendêcia"
 
     return {
         "score": score_final,
