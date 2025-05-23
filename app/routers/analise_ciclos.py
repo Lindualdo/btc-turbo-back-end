@@ -1,13 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import Optional
-from app.services.btc_analysis import analyze_btc_cycles_v2
+from app.services.btc_analysis import analyze_btc_cycles
 from app.dependencies import get_tv_client
 from tvDatafeed import TvDatafeed
 
 router = APIRouter()
 
 @router.get("/analise-ciclos", 
-            summary="Análise de Ciclos do BTC v2.0", 
+            summary="Análise de Ciclos do BTC", 
             tags=["Ciclos"])
 async def analise_ciclos(
     username: Optional[str] = Query(None, description="TradingView username"),
