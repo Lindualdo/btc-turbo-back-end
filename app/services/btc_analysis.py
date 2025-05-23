@@ -292,16 +292,25 @@ def get_btc_dominance_tendencia(tv: TvDatafeed):
 def get_m2_global_momentum():
     """M2 Global Momentum Score - APIs primeiro, Notion como fallback"""
     try:
+        logging.info("🚀 Iniciando coleta M2 Global Momentum...")
+        
         # Tentar APIs dos bancos centrais primeiro
         try:
+            logging.info("📊 Tentando coletar dados M2 via TradingView...")
             momentum_value = _get_m2_from_apis()
-            fonte = "APIs Bancos Centrais"
-        except:
+            fonte = "TradingView APIs"
+            logging.info(f"✅ M2 coletado com sucesso: {momentum_value:.2f}%")
+        except Exception as api_error:
+            logging.warning(f"⚠️ APIs TradingView falharam: {str(api_error)}")
             # Fallback para Notion
+            logging.info("📝 Tentando fallback via Notion...")
             momentum_value = _get_m2_from_notion()
             fonte = "Notion API"
+            logging.info(f"✅ M2 via Notion: {momentum_value:.2f}%")
         
         # Classificar momentum
+        logging.info(f"🧮 Classificando momentum: {momentum_value:.2f}%")
+        
         if momentum_value > 3:
             score = 9.0
             classificacao = "Aceleração Forte"
@@ -318,7 +327,7 @@ def get_m2_global_momentum():
             score = 1.0
             classificacao = "Contração"
             
-        return {
+        resultado = {
             "indicador": "M2 Global Momentum",
             "fonte": fonte,
             "valor_coletado": f"{momentum_value:.1f}% momentum",
@@ -328,7 +337,11 @@ def get_m2_global_momentum():
             "observação": "Velocidade de mudança na expansão monetária global - indica aceleração ou desaceleração de liquidez"
         }
         
+        logging.info(f"✅ M2 Global finalizado - Score: {score}, Classificação: {classificacao}")
+        return resultado
+        
     except Exception as e:
+        logging.error(f"❌ Erro crítico M2 Global: {str(e)}")
         return {
             "indicador": "M2 Global Momentum", 
             "fonte": "Erro",
@@ -341,14 +354,21 @@ def get_m2_global_momentum():
 
 
 def _get_m2_from_apis():
-    """Busca M2 das APIs dos bancos centrais - VERSÃO ATUALIZADA"""
+    """Busca M2 das APIs dos bancos centrais - VERSÃO CORRIGIDA SEM RECURSÃO"""
     try:
+        logging.info("🔧 Iniciando coleta M2 via utilitário...")
+        
+        # IMPORTANTE: Importar aqui para evitar recursão
+        from app.utils.m2_utils import get_m2_global_momentum as m2_utils_function
+        
         # Usar o utilitário que já gerencia a sessão TradingView internamente
-        momentum_value = get_m2_global_momentum()
+        momentum_value = m2_utils_function()
+        
+        logging.info(f"📈 M2 coletado via utils: {momentum_value:.2f}%")
         return momentum_value
         
     except Exception as e:
-        logging.error(f"Erro ao buscar M2 Global: {str(e)}")
+        logging.error(f"❌ Erro ao buscar M2 via utils: {str(e)}")
         raise Exception(f"APIs M2 indisponíveis: {str(e)}")
 
 # Alternativamente, se precisar passar o TV como parâmetro:
@@ -363,27 +383,36 @@ def get_m2_global_momentum_wrapper(tv: TvDatafeed):
         raise Exception(f"M2 Global indisponível: {str(e)}")
 
 def _get_m2_from_notion():
-    """Busca M2 do Notion como fallback"""
+    """Busca M2 do Notion como fallback - COM LOGS"""
     try:
+        logging.info("📝 Buscando M2 no Notion...")
+        
         from notion_client import Client
         settings = get_settings()
         notion = Client(auth=settings.NOTION_TOKEN)
         DATABASE_ID = settings.NOTION_DATABASE_ID_MACRO.strip().replace('"', '')
         
+        logging.info(f"🔍 Consultando Notion DB: {DATABASE_ID}")
         response = notion.databases.query(database_id=DATABASE_ID)
+        
+        logging.info(f"📊 Encontrados {len(response['results'])} registros no Notion")
         
         for row in response["results"]:
             props = row["properties"]
             nome = props["indicador"]["title"][0]["plain_text"].strip().lower()
+            logging.info(f"🔍 Verificando indicador: '{nome}'")
+            
             if nome in ["m2_global", "m2_momentum", "expansao_global"]:
                 valor = float(props["valor"]["number"])
-                # Assumir que valor já é momentum ou converter se necessário
+                logging.info(f"✅ Encontrado {nome}: {valor}")
                 return valor
                 
         # Se não encontrar, usar expansão global como proxy
+        logging.warning("⚠️ M2 específico não encontrado, usando valor padrão")
         return 2.0  # Valor neutro default
         
     except Exception as e:
+        logging.error(f"❌ Erro Notion M2: {str(e)}")
         raise Exception(f"Erro Notion M2: {str(e)}")
 
 # FUNÇÃO V2.0 ATUALIZADA
