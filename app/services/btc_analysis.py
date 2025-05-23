@@ -5,6 +5,7 @@ from app.config import get_settings
 import logging
 from app.utils.m2_utils import get_m2_global_momentum
 
+
 def get_btc_vs_200d_ema(tv: TvDatafeed):
     try:
         df = tv.get_hist(symbol="BTCUSDT", exchange="BINANCE", interval=Interval.in_daily, n_bars=250)
@@ -342,12 +343,8 @@ def get_m2_global_momentum():
 def _get_m2_from_apis():
     """Busca M2 das APIs dos bancos centrais - VERSÃO ATUALIZADA"""
     try:
-        # Usar TvDatafeed existente da sessão
-        from app.dependencies import get_tradingview_session
-        tv = get_tradingview_session()
-        
-        # Buscar dados reais do M2 Global
-        momentum_value = get_m2_global_momentum(tv)
+        # Usar o utilitário que já gerencia a sessão TradingView internamente
+        momentum_value = get_m2_global_momentum()
         return momentum_value
         
     except Exception as e:
