@@ -3,6 +3,7 @@ from tvDatafeed import TvDatafeed, Interval
 import requests
 from app.config import get_settings
 import logging
+from app.utils.m2_utils import get_m2_global_momentum
 
 def get_btc_vs_200d_ema(tv: TvDatafeed):
     try:
@@ -337,20 +338,32 @@ def get_m2_global_momentum():
             "observação": f"Erro: {str(e)}"
         }
 
+
 def _get_m2_from_apis():
-    """Busca M2 das APIs dos bancos centrais"""
-    # Simulação - implementar APIs reais conforme necessário
-    # Por enquanto, gerar valor baseado em lógica simplificada
+    """Busca M2 das APIs dos bancos centrais - VERSÃO ATUALIZADA"""
     try:
-        # Aqui seria a implementação real das APIs
-        # FRED, ECB, etc.
-        # Por simplicidade, retornando valor simulado
-        import random
-        momentum = random.uniform(-2, 4)  # Simular momentum entre -2% e 4%
-        return momentum
+        # Usar TvDatafeed existente da sessão
+        from app.dependencies import get_tradingview_session
+        tv = get_tradingview_session()
         
-    except:
-        raise Exception("APIs indisponíveis")
+        # Buscar dados reais do M2 Global
+        momentum_value = get_m2_global_momentum(tv)
+        return momentum_value
+        
+    except Exception as e:
+        logging.error(f"Erro ao buscar M2 Global: {str(e)}")
+        raise Exception(f"APIs M2 indisponíveis: {str(e)}")
+
+# Alternativamente, se precisar passar o TV como parâmetro:
+def get_m2_global_momentum_wrapper(tv: TvDatafeed):
+    """Wrapper para usar M2 Global com TvDatafeed existente"""
+    try:
+        from app.utils.m2_utils import get_m2_global_momentum
+        return get_m2_global_momentum(tv)
+    except Exception as e:
+        logging.error(f"Erro M2 Global: {str(e)}")
+        # Fallback para Notion se APIs falharem
+        raise Exception(f"M2 Global indisponível: {str(e)}")
 
 def _get_m2_from_notion():
     """Busca M2 do Notion como fallback"""
