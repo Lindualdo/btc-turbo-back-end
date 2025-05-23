@@ -442,7 +442,7 @@ def analyze_btc_cycles_v2(tv):
         
         # 1. BTC vs EMA 200D (30%) - Convertido para escala 0-10
         btc_ema_data = get_btc_vs_200d_ema(tv)
-        variacao = float(btc_ema_data["valor"].replace('%', ''))
+        variacao = btc_ema_data["detalhes"]["variacao_percentual"]
         
         if variacao > 20:
             score_ema = 9.0
