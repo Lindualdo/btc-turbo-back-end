@@ -92,21 +92,52 @@ def _calculate_from_base_data(tv: TvDatafeed):
                     df = tv.get_hist(symbol, exchange, Interval.in_monthly, n_bars=15)
                     
                     if df is not None and not df.empty and len(df) >= 12:
-                        # Calcular crescimento YoY
-                        current = df.iloc[-1]["close"]
-                        year_ago = df.iloc[-12]["close"]
-                        yoy_growth = ((current - year_ago) / year_ago) * 100
+                        # Debug: verificar estrutura dos dados
+                        logging.info(f"Colunas disponíveis: {df.columns.tolist()}")
+                        logging.info(f"Últimas linhas:\n{df.tail(2)}")
+                        
+                        # Verificar se 'close' existe, senão usar outras colunas
+                        price_column = None
+                        for col in ['close', 'Close', 'value', 'price']:
+                            if col in df.columns:
+                                price_column = col
+                                break
+                        
+                        if price_column is None:
+                            logging.warning(f"Nenhuma coluna de preço encontrada para {symbol}")
+                            continue
+                            
+                        # Calcular crescimento YoY com verificação de tipos
+                        try:
+                            current = df.iloc[-1][price_column]
+                            year_ago = df.iloc[-12][price_column]
+                            
+                            # Garantir que são números
+                            if not isinstance(current, (int, float)) or not isinstance(year_ago, (int, float)):
+                                logging.warning(f"Dados não numéricos para {symbol}: current={current}, year_ago={year_ago}")
+                                continue
+                                
+                            if year_ago == 0:
+                                logging.warning(f"Valor zero para {symbol} há 12 meses")
+                                continue
+                                
+                            yoy_growth = ((current - year_ago) / year_ago) * 100
                         
                         m2_data_points.append({
                             "symbol": symbol,
                             "exchange": exchange,
                             "yoy_growth": yoy_growth,
-                            "current_value": current
+                            "current_value": float(current),
+                            "column_used": price_column
                         })
                         
                         success_count += 1
-                        logging.info(f"✅ {symbol}: {yoy_growth:.2f}% YoY")
+                        logging.info(f"✅ {symbol}: {yoy_growth:.2f}% YoY (usando coluna '{price_column}')")
                         break  # Sucesso, não tentar outras exchanges
+                        
+                        except Exception as calc_error:
+                            logging.warning(f"Erro no cálculo para {symbol}: {str(calc_error)}")
+                            continue
                         
                 except Exception as e:
                     logging.debug(f"Falha {symbol} em {exchange}: {str(e)}")
