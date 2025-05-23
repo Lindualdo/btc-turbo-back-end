@@ -27,7 +27,7 @@ def get_btc_vs_200d_ema(tv: TvDatafeed):
             "fonte": "TradingView",
             "valor_coletado": f"BTC {variacao_pct:.1f}% vs EMA 200D",
             "score": score,
-            "score_ponderado (score × peso)": score * 0.30,
+            f"score_ponderado ({score} × 0.30)": score * 0.30,
             "classificacao": classificacao,
             "observação": "Força do bull market baseada na distância do preço atual vs EMA 200 dias",
             "detalhes": {
@@ -93,7 +93,7 @@ def get_btc_vs_realized_price(tv: TvDatafeed):
             "fonte": "Notion API / Glassnode",
             "valor_coletado": f"BTC {variacao_pct:.1f}% vs Realized Price",
             "score": score,
-            "score_ponderado (score × peso)": score * 0.30,
+            f"score_ponderado ({score} × 0.30)": score * 0.30,
             "classificacao": classificacao,
             "observação": "Compara preço de mercado com preço médio pago pelos holders para avaliar fase do ciclo",
             "detalhes": {
@@ -191,7 +191,7 @@ def get_puell_multiple():
                     "fonte": "Notion API / Glassnode",
                     "valor_coletado": f"{valor:.2f}",
                     "score": score,
-                    "score_ponderado (score × peso)": score * 0.20,
+                    f"score_ponderado ({score} × 0.20)": score * 0.20,
                     "classificacao": classificacao,
                     "observação": "Ratio da receita diária dos mineradores vs média de 1 ano - indica pressão de venda",
                     "detalhes": {
@@ -258,7 +258,7 @@ def get_funding_rates_analysis():
             "fonte": "Binance API",
             "valor_coletado": f"{avg_7d:.3f}%",
             "score": score,
-            "score_ponderado (score × peso)": score * 0.05,
+            f"score_ponderado ({score} × 0.05)": score * 0.05,
             "classificacao": classificacao,
             "observação": "Média de 7 dias das taxas de funding dos contratos perpétuos - indica sentimento do mercado",
             "detalhes": {
@@ -340,7 +340,7 @@ def get_m2_global_momentum():
             "fonte": fonte,
             "valor_coletado": f"{momentum_value:.1f}% momentum",
             "score": score,
-            "score_ponderado (score × peso)": score * 0.15,
+            f"score_ponderado ({score} × 0.15)": score * 0.15,
             "classificacao": classificacao,
             "observação": "Velocidade de mudança na expansão monetária global - indica aceleração ou desaceleração de liquidez"
         }
@@ -444,19 +444,19 @@ def analyze_btc_cycles_v2(tv):
         indicadores.append(funding_data)
         
         # Calcular score consolidado
-        score_consolidado = sum([ind["score_ponderado (score × peso)"] for ind in indicadores])
+        score_consolidado = sum([list(ind.values())[4] for ind in indicadores if len(ind.values()) > 4])
         
         # Classificação final
         if score_consolidado >= 8.1:
-            classificacao_final = "🟢 Bull Forte"
+            classificacao_final = "Bull Forte"
         elif score_consolidado >= 6.1:
-            classificacao_final = "🔵 Bull Moderado"
+            classificacao_final = "Bull Moderado"
         elif score_consolidado >= 4.1:
-            classificacao_final = "🟡 Tendência Neutra"
+            classificacao_final = "Tendência Neutra"
         elif score_consolidado >= 2.1:
-            classificacao_final = "🟠 Bear Leve"
+            classificacao_final = "Bear Leve"
         else:
-            classificacao_final = "🔴 Bear Forte"
+            classificacao_final = "Bear Forte"
             
         # Gerar observação
         observacoes = []
