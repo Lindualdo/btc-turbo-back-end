@@ -7,6 +7,10 @@ from app.utils.m2_utils import get_m2_global_momentum
 
 
 def get_btc_vs_200d_ema(tv: TvDatafeed):
+    """
+    Analisa a força do bull market baseado na posição do BTC vs EMA 200D
+    Retorna score de 0-10 com classificação em 5 níveis
+    """
     try:
         df = tv.get_hist(symbol="BTCUSDT", exchange="BINANCE", interval=Interval.in_daily, n_bars=250)
         df["EMA_200"] = df["close"].ewm(span=200, adjust=False).mean()
@@ -15,39 +19,54 @@ def get_btc_vs_200d_ema(tv: TvDatafeed):
         ema200 = df["EMA_200"].iloc[-1]
         variacao_pct = ((close - ema200) / ema200) * 100
 
-        if variacao_pct > 10:
-            pontos = 2
-        elif variacao_pct >= 0:
-            pontos = 1
-        else:
-            pontos = 0
-
-        confiabilidade = "95%" if 9.5 <= variacao_pct <= 10.5 else "100%"
+        # Classificar força do bull market
+        score, classificacao = _classify_bull_market_strength(variacao_pct)
 
         return {
-            "indicador": "BTC vs 200D EMA",
-            "fonte": "TradingView (tvDatafeed)",
-            "valor": f"{variacao_pct:.2f}%",
-            "preco_atual": round(close, 2),
-            "ema_200": round(ema200, 2),
-            "pontuacao_bruta": pontos,
-            "peso": 0.25,
-            "pontuacao_ponderada": round(pontos * 0.25, 2),
-            "confiabilidade": confiabilidade
+            "indicador": "BTC vs EMA 200D",
+            "fonte": "TradingView",
+            "valor_coletado": f"BTC {variacao_pct:.1f}% vs EMA 200D",
+            "score": score,
+            "score_ponderado (score × peso)": score * 0.25,
+            "classificacao": classificacao,
+            "observação": "Força do bull market baseada na distância do preço atual vs EMA 200 dias",
+            "detalhes": {
+                "preco_atual": round(close, 2),
+                "ema_200": round(ema200, 2),
+                "variacao_percentual": round(variacao_pct, 2)
+            }
         }
 
     except Exception as e:
         return {
-            "indicador": "BTC vs 200D EMA",
-            "fonte": "TradingView (tvDatafeed)",
-            "valor": "erro",
-            "preco_atual": None,
-            "ema_200": None,
-            "pontuacao_bruta": 0,
-            "peso": 0.25,
-            "pontuacao_ponderada": 0.0,
-            "erro": str(e)
+            "indicador": "BTC vs EMA 200D",
+            "fonte": "TradingView",
+            "valor_coletado": "erro",
+            "score": 0.0,
+            "score_ponderado (score × peso)": 0.0,
+            "classificacao": "Dados indisponíveis",
+            "observação": f"Erro: {str(e)}",
+            "detalhes": {
+                "preco_atual": None,
+                "ema_200": None,
+                "variacao_percentual": None
+            }
         }
+
+def _classify_bull_market_strength(variacao_pct):
+    """
+    Classifica a força do bull market baseado na variação percentual vs EMA 200D
+    """
+    if variacao_pct > 30:
+        return 9.0, "Bull Parabólico"
+    elif variacao_pct > 15:
+        return 7.0, "Bull Forte"  
+    elif variacao_pct > 5:
+        return 5.0, "Bull Moderado"
+    elif variacao_pct > 0:
+        return 3.0, "Bull Inicial"
+    else:
+        return 1.0, "Bull Não Confirmado"
 
 def get_realized_price_vs_price_atual(tv: TvDatafeed):
     try:
