@@ -43,7 +43,7 @@ def get_btc_vs_200d_ema(tv: TvDatafeed):
             "fonte": "TradingView",
             "valor_coletado": "erro",
             "score": 0.0,
-            "score_ponderado (score × peso)": 0.0,
+            f"score_ponderado (0.0 × 0.30)": 0.0,
             "classificacao": "Dados indisponíveis",
             "observação": f"Erro: {str(e)}",
             "detalhes": {
@@ -74,14 +74,33 @@ def get_btc_vs_realized_price(tv: TvDatafeed):
     """
     Analisa a fase do ciclo baseado na posição do BTC vs Realized Price
     Retorna score de 0-10 com classificação em 5 níveis
+    Agora usa dados reais do TradingView via MVRV
     """
     try:
         # Buscar preço atual do BTC
         df = tv.get_hist(symbol="BTCUSDT", exchange="BINANCE", interval=Interval.in_daily, n_bars=1)
         preco_atual = df.iloc[-1]["close"]
         
-        # Buscar Realized Price do Notion
-        realized_price = _get_realized_price_from_notion()
+        # Buscar Realized Price via TradingView (usando MVRV)
+        realized_price, fonte_dados = _get_realized_price_from_tv(tv, preco_atual)
+        
+        # Se não encontrou dados válidos, retornar erro
+        if realized_price == 0:
+            return {
+                "indicador": "BTC vs Realized Price",
+                "fonte": fonte_dados,
+                "valor_coletado": "erro - dados não encontrados",
+                "score": 0.0,
+                f"score_ponderado (0.0 × 0.30)": 0.0,
+                "classificacao": "Dados indisponíveis",
+                "observação": "Não foi possível obter Realized Price do TradingView",
+                "detalhes": {
+                    "preco_atual": round(preco_atual, 2),
+                    "realized_price": 0,
+                    "variacao_percentual": 0,
+                    "metodo_calculo": "Erro - sem dados"
+                }
+            }
         
         variacao_pct = ((preco_atual - realized_price) / realized_price) * 100
 
@@ -90,7 +109,7 @@ def get_btc_vs_realized_price(tv: TvDatafeed):
 
         return {
             "indicador": "BTC vs Realized Price",
-            "fonte": "Notion API / Glassnode",
+            "fonte": fonte_dados,
             "valor_coletado": f"BTC {variacao_pct:.1f}% vs Realized Price",
             "score": score,
             f"score_ponderado ({score} × 0.30)": score * 0.30,
@@ -99,48 +118,121 @@ def get_btc_vs_realized_price(tv: TvDatafeed):
             "detalhes": {
                 "preco_atual": round(preco_atual, 2),
                 "realized_price": round(realized_price, 2),
-                "variacao_percentual": round(variacao_pct, 2)
+                "variacao_percentual": round(variacao_pct, 2),
+                "metodo_calculo": "TradingView MVRV" if "TradingView" in fonte_dados else "Erro"
             }
         }
 
     except Exception as e:
         return {
             "indicador": "BTC vs Realized Price",
-            "fonte": "Notion API / Glassnode",
+            "fonte": "Erro",
             "valor_coletado": "erro",
             "score": 0.0,
-            "score_ponderado (score × peso)": 0.0,
+            f"score_ponderado (0.0 × 0.30)": 0.0,
             "classificacao": "Dados indisponíveis",
             "observação": f"Erro: {str(e)}",
             "detalhes": {
                 "preco_atual": None,
                 "realized_price": None,
-                "variacao_percentual": None
+                "variacao_percentual": None,
+                "metodo_calculo": "Erro"
             }
         }
 
 
-def _get_realized_price_from_notion():
-    """Busca Realized Price do Notion"""
+def _get_realized_price_from_tv(tv, current_btc_price):
+    """
+    Busca Realized Price via TradingView usando múltiplas estratégias
+    Prioridade: MVRV > Market Cap/Supply
+    Retorna 0 se não encontrar dados válidos
+    """
     try:
-        from notion_client import Client
-        settings = get_settings()
-        notion = Client(auth=settings.NOTION_TOKEN)
-        DATABASE_ID = settings.NOTION_DATABASE_ID_MACRO.strip().replace('"', '')
+        # Estratégia 1: Usar MVRV Ratio
+        logging.info("📊 Tentando calcular Realized Price via MVRV...")
         
-        response = notion.databases.query(database_id=DATABASE_ID)
-        for row in response["results"]:
-            props = row["properties"]
-            nome = props["indicador"]["title"][0]["plain_text"].strip().lower()
-            if nome == "realized_price":
-                return float(props["valor"]["number"])
+        # Tentar diferentes símbolos MVRV
+        mvrv_symbols = [
+            ("BTC_MVRV", "ECONOMICS"),
+            ("MVRV", "CRYPTO"),
+            ("BTC.MVRV", "INDEX"),
+            ("BTCMVRV", "ECONOMICS")
+        ]
+        
+        for symbol, exchange in mvrv_symbols:
+            try:
+                logging.info(f"🔍 Tentando {symbol} na exchange {exchange}...")
+                mvrv_df = tv.get_hist(symbol, exchange, Interval.in_daily, n_bars=5)
                 
-        # Fallback se não encontrar
-        return 50000.0
+                if mvrv_df is not None and not mvrv_df.empty:
+                    mvrv_ratio = mvrv_df.iloc[-1]["close"]
+                    
+                    # Validar MVRV (deve estar entre 0.5 e 10 normalmente)
+                    if 0.5 <= mvrv_ratio <= 10:
+                        realized_price = current_btc_price / mvrv_ratio
+                        logging.info(f"✅ MVRV encontrado: {mvrv_ratio:.2f}, Realized Price: ${realized_price:.0f}")
+                        return realized_price, f"TradingView MVRV ({exchange})"
+                    else:
+                        logging.warning(f"⚠️ MVRV inválido: {mvrv_ratio}")
+                        
+            except Exception as e:
+                logging.debug(f"❌ {symbol} falhou: {str(e)}")
+                continue
+        
+        # Estratégia 2: Usar Market Cap / Supply
+        logging.info("📊 Tentando calcular via Market Cap / Supply...")
+        try:
+            cap_symbols = [
+                ("BTC_MARKET_CAP", "ECONOMICS"),
+                ("BTCUSD_MARKET_CAP", "CRYPTO"),
+                ("BTC.MCAP", "INDEX")
+            ]
+            
+            supply_symbols = [
+                ("BTC_SUPPLY", "ECONOMICS"),
+                ("BTC_CIRCULATING_SUPPLY", "CRYPTO"),
+                ("BTC.SUPPLY", "INDEX")
+            ]
+            
+            market_cap = None
+            supply = None
+            
+            # Buscar Market Cap
+            for symbol, exchange in cap_symbols:
+                try:
+                    df = tv.get_hist(symbol, exchange, Interval.in_daily, n_bars=1)
+                    if df is not None and not df.empty:
+                        market_cap = df.iloc[-1]["close"]
+                        break
+                except:
+                    continue
+            
+            # Buscar Supply
+            for symbol, exchange in supply_symbols:
+                try:
+                    df = tv.get_hist(symbol, exchange, Interval.in_daily, n_bars=1)
+                    if df is not None and not df.empty:
+                        supply = df.iloc[-1]["close"]
+                        break
+                except:
+                    continue
+            
+            if market_cap and supply and supply > 0:
+                realized_price = market_cap / supply
+                if 20000 <= realized_price <= 100000:  # Sanity check
+                    logging.info(f"✅ Market Cap/Supply calculado: ${realized_price:.0f}")
+                    return realized_price, "TradingView Market Cap/Supply"
+                    
+        except Exception as e:
+            logging.debug(f"❌ Market Cap/Supply falhou: {str(e)}")
+        
+        # Se chegou aqui, não encontrou dados válidos
+        logging.error("❌ Nenhuma estratégia funcionou para Realized Price")
+        return 0, "Erro - Dados não encontrados no TradingView"
         
     except Exception as e:
-        logging.error(f"Erro ao buscar Realized Price: {str(e)}")
-        return 50000.0
+        logging.error(f"❌ Erro crítico ao buscar Realized Price: {str(e)}")
+        return 0, f"Erro - {str(e)}"
 
 
 def _classify_cycle_phase(variacao_pct):
@@ -207,7 +299,7 @@ def get_puell_multiple():
             "fonte": "Notion API / Glassnode",
             "valor_coletado": "erro",
             "score": 0.0,
-            "score_ponderado (score × peso)": 0.0,
+            f"score_ponderado (0.0 × 0.20)": 0.0,
             "classificacao": "Dados indisponíveis",
             "observação": f"Erro: {str(e)}",
             "detalhes": {
@@ -272,7 +364,7 @@ def get_funding_rates_analysis():
             "fonte": "Binance API",
             "valor_coletado": "erro",
             "score": 0.0,
-            "score_ponderado (score × peso)": 0.0,
+            f"score_ponderado (0.0 × 0.05)": 0.0,
             "classificacao": "Dados indisponíveis",
             "observação": f"Erro: {str(e)}",
             "detalhes": {
@@ -355,7 +447,7 @@ def get_m2_global_momentum():
             "fonte": "Erro",
             "valor_coletado": "erro",
             "score": 5.0,  # Neutro em caso de erro
-            "score_ponderado (score × peso)": 5.0 * 0.15,
+            f"score_ponderado (5.0 × 0.15)": 5.0 * 0.15,
             "classificacao": "Dados indisponíveis",
             "observação": f"Erro: {str(e)}"
         }
@@ -443,20 +535,25 @@ def analyze_btc_cycles_v2(tv):
         funding_data = get_funding_rates_analysis()
         indicadores.append(funding_data)
         
-        # Calcular score consolidado
-        score_consolidado = sum([list(ind.values())[4] for ind in indicadores if len(ind.values()) > 4])
+        # Calcular score consolidado - busca pela chave que contém "score_ponderado"
+        score_consolidado = 0
+        for ind in indicadores:
+            for key, value in ind.items():
+                if "score_ponderado" in key and isinstance(value, (int, float)):
+                    score_consolidado += value
+                    break
         
         # Classificação final
         if score_consolidado >= 8.1:
-            classificacao_final = "Bull Forte"
+            classificacao_final = "🟢 Bull Forte"
         elif score_consolidado >= 6.1:
-            classificacao_final = "Bull Moderado"
+            classificacao_final = "🔵 Bull Moderado"
         elif score_consolidado >= 4.1:
-            classificacao_final = "Tendência Neutra"
+            classificacao_final = "🟡 Tendência Neutra"
         elif score_consolidado >= 2.1:
-            classificacao_final = "Bear Leve"
+            classificacao_final = "🟠 Bear Leve"
         else:
-            classificacao_final = "Bear Forte"
+            classificacao_final = "🔴 Bear Forte"
             
         # Gerar observação
         observacoes = []
