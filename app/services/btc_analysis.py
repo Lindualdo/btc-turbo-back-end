@@ -433,9 +433,220 @@ def _get_m2_from_notion():
     except Exception as e:
         logging.error(f"❌ Erro Notion M2: {str(e)}")
         raise Exception(f"Erro Notion M2: {str(e)}")
-
-# FUNÇÃO V2.0 ATUALIZADA
+    
+# FUNÇÃO V2.0 CORRIGIDA - APENAS AS LINHAS NECESSÁRIAS
 def analyze_btc_cycles_v2(tv):
+    """Análise de ciclos BTC v2.0 - formato JSON padronizado"""
+    try:
+        indicadores = []
+        
+        # 1. BTC vs EMA 200D (30%) - CORREÇÃO APLICADA
+        btc_ema_data = get_btc_vs_200d_ema(tv)
+        
+        # ✅ CORREÇÃO 1: Usar novo formato para variação
+        variacao = btc_ema_data["detalhes"]["variacao_percentual"]
+        
+        if variacao > 20:
+            score_ema = 9.0
+            classificacao_ema = "Bull Confirmado"
+        elif variacao > 10:
+            score_ema = 8.0
+            classificacao_ema = "Bull Confirmado"  
+        elif variacao > 0:
+            score_ema = 7.0
+            classificacao_ema = "Bull Inicial"
+        elif variacao > -10:
+            score_ema = 5.0
+            classificacao_ema = "Transição"
+        elif variacao > -30:
+            score_ema = 3.0
+            classificacao_ema = "Bear Moderado"
+        else:
+            score_ema = 1.0
+            classificacao_ema = "Bear Severo"
+            
+        indicadores.append({
+            "indicador": "BTC vs EMA 200D",
+            "fonte": "TradingView",
+            "valor_coletado": f"BTC {variacao:.1f}% vs EMA 200D",
+            "score": score_ema,
+            "score_ponderado (score × peso)": score_ema * 0.30,
+            "classificacao": classificacao_ema,
+            "observação": "Compara preço atual do BTC com média móvel de 200 dias para identificar tendência macro"
+        })
+        
+        # 2. BTC vs Realized Price (30%) - CORREÇÃO APLICADA
+        try:
+            from notion_client import Client
+            settings = get_settings()
+            notion = Client(auth=settings.NOTION_TOKEN)
+            DATABASE_ID = settings.NOTION_DATABASE_ID_MACRO.strip().replace('"', '')
+            
+            realized_price = 50000  # Default
+            response = notion.databases.query(database_id=DATABASE_ID)
+            for row in response["results"]:
+                props = row["properties"]
+                nome = props["indicador"]["title"][0]["plain_text"].strip().lower()
+                if nome == "realized_price":
+                    realized_price = float(props["valor"]["number"])
+                    break
+        except:
+            realized_price = 50000
+            
+        # ✅ CORREÇÃO 2: Usar novo formato para preço atual
+        btc_current = btc_ema_data["detalhes"]["preco_atual"]
+        percentual_realized = ((btc_current - realized_price) / realized_price) * 100
+        
+        if percentual_realized > 50:
+            score_realized = 9.0
+            classificacao_realized = "Ciclo Aquecido"
+        elif percentual_realized > 20:
+            score_realized = 7.0
+            classificacao_realized = "Ciclo Normal"
+        elif percentual_realized > -10:
+            score_realized = 5.0
+            classificacao_realized = "Acumulação"
+        elif percentual_realized > -30:
+            score_realized = 3.0
+            classificacao_realized = "Capitulação Leve"
+        else:
+            score_realized = 1.0
+            classificacao_realized = "Capitulação Severa"
+            
+        indicadores.append({
+            "indicador": "BTC vs Realized Price",
+            "fonte": "Notion API / Glassnode",
+            "valor_coletado": f"BTC {percentual_realized:.1f}% vs Realized Price",
+            "score": score_realized,
+            "score_ponderado (score × peso)": score_realized * 0.30,
+            "classificacao": classificacao_realized,
+            "observação": "Compara preço de mercado com preço médio pago pelos holders para avaliar fase do ciclo"
+        })
+        
+        # 3. Puell Multiple (20%) - MANTÉM COMO ESTÁ
+        puell_data = get_puell_multiple()
+        puell_value = puell_data.get("valor", 1.0)
+        
+        if isinstance(puell_value, str):
+            puell_value = 1.0
+            
+        if 0.5 <= puell_value <= 1.2:
+            score_puell = 9.0
+            classificacao_puell = "Zona Ideal"
+        elif 1.2 < puell_value <= 1.8:
+            score_puell = 7.0
+            classificacao_puell = "Leve Aquecimento"
+        elif (0.3 <= puell_value < 0.5) or (1.8 < puell_value <= 2.5):
+            score_puell = 5.0
+            classificacao_puell = "Neutro"
+        elif 2.5 < puell_value <= 4.0:
+            score_puell = 3.0
+            classificacao_puell = "Tensão Alta"
+        else:
+            score_puell = 1.0
+            classificacao_puell = "Extremo"
+            
+        indicadores.append({
+            "indicador": "Puell Multiple",
+            "fonte": "Notion API / Glassnode",
+            "valor_coletado": f"{puell_value:.2f}",
+            "score": score_puell,
+            "score_ponderado (score × peso)": score_puell * 0.20,
+            "classificacao": classificacao_puell,
+            "observação": "Ratio da receita diária dos mineradores vs média de 1 ano - indica pressão de venda"
+        })
+        
+        # 4. M2 Global Momentum (15%) - JÁ ESTÁ CORRETO
+        m2_momentum_data = get_m2_global_momentum()
+        indicadores.append(m2_momentum_data)
+        
+        # 5. Funding Rates 7D (5%) - MANTÉM COMO ESTÁ
+        try:
+            url = "https://fapi.binance.com/fapi/v1/fundingRate"
+            params = {"symbol": "BTCUSDT", "limit": 56}
+            response = requests.get(url, params=params, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+            
+            if data:
+                rates = [float(item["fundingRate"]) * 100 for item in data]
+                avg_7d = sum(rates) / len(rates)
+            else:
+                avg_7d = 0.05
+        except:
+            avg_7d = 0.05
+            
+        if 0 <= avg_7d <= 0.1:
+            score_funding = 9.0
+            classificacao_funding = "Sentimento Equilibrado"
+        elif 0.1 < avg_7d <= 0.2:
+            score_funding = 7.0
+            classificacao_funding = "Otimismo Moderado"
+        elif 0.2 < avg_7d <= 0.3:
+            score_funding = 5.0
+            classificacao_funding = "Aquecimento"
+        elif 0.3 < avg_7d <= 0.5:
+            score_funding = 3.0
+            classificacao_funding = "Euforia Inicial"
+        else:
+            score_funding = 1.0
+            classificacao_funding = "Euforia Extrema"
+            
+        indicadores.append({
+            "indicador": "Funding Rates 7D Média",
+            "fonte": "Binance API",
+            "valor_coletado": f"{avg_7d:.3f}%",
+            "score": score_funding,
+            "score_ponderado (score × peso)": score_funding * 0.05,
+            "classificacao": classificacao_funding,
+            "observação": "Média de 7 dias das taxas de funding dos contratos perpétuos - indica sentimento do mercado"
+        })
+        
+        # Calcular score consolidado
+        score_consolidado = sum([ind["score_ponderado (score × peso)"] for ind in indicadores])
+        
+        # Classificação final
+        if score_consolidado >= 8.1:
+            classificacao_final = "🟢 Bull Forte"
+        elif score_consolidado >= 6.1:
+            classificacao_final = "🔵 Bull Moderado"
+        elif score_consolidado >= 4.1:
+            classificacao_final = "🟡 Tendência Neutra"
+        elif score_consolidado >= 2.1:
+            classificacao_final = "🟠 Bear Leve"
+        else:
+            classificacao_final = "🔴 Bear Forte"
+            
+        # Gerar observação
+        observacoes = []
+        for ind in indicadores:
+            nome = ind["indicador"].split()[0]
+            score_ind = ind["score"]
+            if score_ind >= 8:
+                observacoes.append(f"{nome}: forte ({score_ind})")
+            elif score_ind >= 6:
+                observacoes.append(f"{nome}: moderado ({score_ind})")
+            elif score_ind <= 3:
+                observacoes.append(f"{nome}: fraco ({score_ind})")
+        
+        observacao_final = f"Score consolidado {score_consolidado:.2f}. Destaques: {', '.join(observacoes[:3])}"
+        
+        return {
+            "categoria": "Análise de Ciclos do BTC",
+            "score_consolidado": round(score_consolidado, 2),
+            "classificacao": classificacao_final,
+            "Observação": observacao_final,
+            "indicadores": indicadores
+        }
+        
+    except Exception as e:
+        return {
+            "categoria": "Análise de Ciclos do BTC",
+            "score_consolidado": 0.0,
+            "classificacao": "🔴 Erro",
+            "Observação": f"Erro na análise: {str(e)}",
+            "indicadores": []
+        }
     """Análise de ciclos BTC v2.0 - formato JSON padronizado"""
     try:
         indicadores = []
