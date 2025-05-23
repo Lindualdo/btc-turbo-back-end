@@ -27,7 +27,7 @@ async def analise_ciclos(
     Retorna score 0-10 com classificação Bull/Bear.
     """
     try:
-        resultado = analyze_btc_cycles_v2(tv)
+        resultado = analyze_btc_cycles(tv)
         return resultado
         
     except Exception as e:
