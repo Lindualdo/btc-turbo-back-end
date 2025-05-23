@@ -54,7 +54,20 @@ def get_btc_vs_200d_ema(tv: TvDatafeed):
         }
 
 
-# função _classify_bull_market_strength removida - sem uso para a API analise de ciclos
+def _classify_bull_market_strength(variacao_pct):
+    """
+    Classifica a força do bull market baseado na variação percentual vs EMA 200D
+    """
+    if variacao_pct > 30:
+        return 9.0, "Bull Parabólico"
+    elif variacao_pct > 15:
+        return 7.0, "Bull Forte"  
+    elif variacao_pct > 5:
+        return 5.0, "Bull Moderado"
+    elif variacao_pct > 0:
+        return 3.0, "Bull Inicial"
+    else:
+        return 1.0, "Bull Não Confirmado"
 
 
 def get_btc_vs_realized_price(tv: TvDatafeed):
@@ -107,10 +120,43 @@ def get_btc_vs_realized_price(tv: TvDatafeed):
         }
 
 
-# função _get_realized_price_from_notion removida - sem uso para a API analise de ciclos
+def _get_realized_price_from_notion():
+    """Busca Realized Price do Notion"""
+    try:
+        from notion_client import Client
+        settings = get_settings()
+        notion = Client(auth=settings.NOTION_TOKEN)
+        DATABASE_ID = settings.NOTION_DATABASE_ID_MACRO.strip().replace('"', '')
+        
+        response = notion.databases.query(database_id=DATABASE_ID)
+        for row in response["results"]:
+            props = row["properties"]
+            nome = props["indicador"]["title"][0]["plain_text"].strip().lower()
+            if nome == "realized_price":
+                return float(props["valor"]["number"])
+                
+        # Fallback se não encontrar
+        return 50000.0
+        
+    except Exception as e:
+        logging.error(f"Erro ao buscar Realized Price: {str(e)}")
+        return 50000.0
 
 
-# função _classify_cycle_phase removida - sem uso para a API analise de ciclos
+def _classify_cycle_phase(variacao_pct):
+    """
+    Classifica a fase do ciclo baseado na variação vs Realized Price
+    """
+    if variacao_pct > 50:
+        return 9.0, "Ciclo Aquecido"
+    elif variacao_pct > 20:
+        return 7.0, "Ciclo Normal"
+    elif variacao_pct > -10:
+        return 5.0, "Acumulação"
+    elif variacao_pct > -30:
+        return 3.0, "Capitulação Leve"
+    else:
+        return 1.0, "Capitulação Severa"
 
 
 def get_puell_multiple():
@@ -170,7 +216,20 @@ def get_puell_multiple():
         }
 
 
-# função _classify_miner_pressure removida - sem uso para a API analise de ciclos
+def _classify_miner_pressure(puell_value):
+    """
+    Classifica a pressão dos mineradores baseado no Puell Multiple
+    """
+    if 0.5 <= puell_value <= 1.2:
+        return 9.0, "Zona Ideal"
+    elif 1.2 < puell_value <= 1.8:
+        return 7.0, "Leve Aquecimento"
+    elif (0.3 <= puell_value < 0.5) or (1.8 < puell_value <= 2.5):
+        return 5.0, "Neutro"
+    elif 2.5 < puell_value <= 4.0:
+        return 3.0, "Tensão Alta"
+    else:
+        return 1.0, "Extremo"
 
 
 def get_funding_rates_analysis():
@@ -222,7 +281,20 @@ def get_funding_rates_analysis():
         }
 
 
-# função _classify_market_sentiment removida - sem uso para a API analise de ciclos
+def _classify_market_sentiment(avg_7d):
+    """
+    Classifica o sentimento do mercado baseado nas Funding Rates
+    """
+    if 0 <= avg_7d <= 0.1:
+        return 9.0, "Sentimento Equilibrado"
+    elif 0.1 < avg_7d <= 0.2:
+        return 7.0, "Otimismo Moderado"
+    elif 0.2 < avg_7d <= 0.3:
+        return 5.0, "Aquecimento"
+    elif 0.3 < avg_7d <= 0.5:
+        return 3.0, "Euforia Inicial"
+    else:
+        return 1.0, "Euforia Extrema"
 
 
 def get_m2_global_momentum():
@@ -289,10 +361,57 @@ def get_m2_global_momentum():
         }
 
 
-# função _get_m2_from_apis removida - sem uso para a API analise de ciclos
+def _get_m2_from_apis():
+    """Busca M2 das APIs dos bancos centrais - VERSÃO CORRIGIDA SEM RECURSÃO"""
+    try:
+        logging.info("🔧 Iniciando coleta M2 via utilitário...")
+        
+        # IMPORTANTE: Importar aqui para evitar recursão
+        from app.utils.m2_utils import get_m2_global_momentum as m2_utils_function
+        
+        # Usar o utilitário que já gerencia a sessão TradingView internamente
+        momentum_value = m2_utils_function()
+        
+        logging.info(f"📈 M2 coletado via utils: {momentum_value:.2f}%")
+        return momentum_value
+        
+    except Exception as e:
+        logging.error(f"❌ Erro ao buscar M2 via utils: {str(e)}")
+        raise Exception(f"APIs M2 indisponíveis: {str(e)}")
 
 
-# função _get_m2_from_notion removida - sem uso para a API analise de ciclos
+def _get_m2_from_notion():
+    """Busca M2 do Notion como fallback - COM LOGS"""
+    try:
+        logging.info("📝 Buscando M2 no Notion...")
+        
+        from notion_client import Client
+        settings = get_settings()
+        notion = Client(auth=settings.NOTION_TOKEN)
+        DATABASE_ID = settings.NOTION_DATABASE_ID_MACRO.strip().replace('"', '')
+        
+        logging.info(f"🔍 Consultando Notion DB: {DATABASE_ID}")
+        response = notion.databases.query(database_id=DATABASE_ID)
+        
+        logging.info(f"📊 Encontrados {len(response['results'])} registros no Notion")
+        
+        for row in response["results"]:
+            props = row["properties"]
+            nome = props["indicador"]["title"][0]["plain_text"].strip().lower()
+            logging.info(f"🔍 Verificando indicador: '{nome}'")
+            
+            if nome in ["m2_global", "m2_momentum", "expansao_global"]:
+                valor = float(props["valor"]["number"])
+                logging.info(f"✅ Encontrado {nome}: {valor}")
+                return valor
+                
+        # Se não encontrar, usar expansão global como proxy
+        logging.warning("⚠️ M2 específico não encontrado, usando valor padrão")
+        return 2.0  # Valor neutro default
+        
+    except Exception as e:
+        logging.error(f"❌ Erro Notion M2: {str(e)}")
+        raise Exception(f"Erro Notion M2: {str(e)}")
 
 
 # FUNÇÃO PRINCIPAL - LIMPA E ORGANIZADA
