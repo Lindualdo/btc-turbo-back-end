@@ -140,96 +140,104 @@ def _get_bull_market_range(variacao_pct):
     else:
         return "< 0%"
 
-
 def get_btc_vs_realized_price(tv: TvDatafeed):
     """
-    VERSÃO CORRIGIDA: Usa implementação BigQuery REAL
+    VERSÃO COM LOGS DETALHADOS para identificar valores fixos
     """
     try:
+        logging.info("🚀 [DEBUG] Iniciando get_btc_vs_realized_price...")
+        
         # Buscar preço atual do BTC
+        logging.info("📊 [DEBUG] Buscando preço atual BTC via TradingView...")
         df = tv.get_hist(symbol="BTCUSDT", exchange="BINANCE", interval=Interval.in_daily, n_bars=1)
         preco_atual = safe_float(df.iloc[-1]["close"])
+        
+        logging.info(f"💰 [DEBUG] Preço atual obtido: ${preco_atual:,.2f}")
         
         if preco_atual <= 0:
             raise ValueError("Preço atual inválido")
         
-        # NOVO: Usar implementação BigQuery REAL
-        from app.utils.realized_price_util import get_realized_price
-        
-        logging.info(f"🔍 Preço atual BTC: ${preco_atual:,.2f}")
-        logging.info("⚡ Calculando Realized Price via BigQuery + TradingView...")
-        
-        # Calcular Realized Price REAL
-        realized_price = get_realized_price()
-        
-        if realized_price <= 0:
-            raise ValueError("Realized Price inválido retornado")
-        
-        # Calcular variação
-        variacao_pct = safe_division((preco_atual - realized_price), realized_price, 0.0) * 100
-        
-        # Classificar fase do ciclo
-        score, classificacao = _classify_cycle_phase_real(variacao_pct)
-        
-        return {
-            "indicador": "BTC vs Realized Price",
-            "fonte": "BigQuery UTXOs + TradingView preços históricos",
-            "valor_coletado": f"BTC {variacao_pct:.1f}% vs Realized Price",
-            "score": safe_float(score),
-            f"score_ponderado ({score} × 0.30)": safe_float(score * 0.30),
-            "classificacao": classificacao,
-            "observação": "Compara preço de mercado com preço médio REAL dos holders baseado em UTXOs blockchain + preços históricos",
-            "detalhes": {
-                "dados_coletados": {
-                    "preco_atual": safe_float(preco_atual),
-                    "realized_price": safe_float(realized_price),
-                    "fonte": "BigQuery + TradingView"
-                },
-                "calculo": {
-                    "formula": f"(({preco_atual:.0f} - {realized_price:.0f}) / {realized_price:.0f}) × 100",
-                    "variacao_percentual": safe_float(variacao_pct),
-                    "faixa_classificacao": _get_cycle_phase_range_real(variacao_pct)
-                },
-                "racional": f"Preço {variacao_pct:.1f}% vs Realized Price REAL indica {classificacao.lower()} baseado em UTXOs blockchain reais + preços históricos TradingView"
-            }
-        }
-        
-    except Exception as e:
-        logging.error(f"❌ Erro na análise BTC vs Realized Price REAL: {str(e)}")
-        
-        # Fallback para versão estimativa se BigQuery falhar
-        logging.warning("🔄 Fallback: Usando estimativa em caso de erro BigQuery...")
+        # NOVO: Usar implementação BigQuery REAL com logs detalhados
+        logging.info("⚡ [DEBUG] Iniciando cálculo Realized Price via BigQuery...")
         
         try:
-            from app.utils.realized_price_utils import analyze_btc_vs_realized_price
-            return analyze_btc_vs_realized_price(preco_atual)
-        except Exception as fallback_error:
-            logging.error(f"❌ Fallback também falhou: {str(fallback_error)}")
+            # Import da função BigQuery
+            logging.info("📦 [DEBUG] Importando função BigQuery...")
+            from app.utils.realized_price_util import get_realized_price
+            
+            logging.info("🔗 [DEBUG] Função BigQuery importada com sucesso!")
+            
+            # Chamar função BigQuery
+            logging.info("⚡ [DEBUG] Executando get_realized_price()...")
+            realized_price = get_realized_price()
+            
+            logging.info(f"💡 [DEBUG] Resultado BigQuery bruto: {realized_price}")
+            logging.info(f"🔢 [DEBUG] Tipo do resultado: {type(realized_price)}")
+            
+            if realized_price <= 0:
+                logging.error(f"❌ [DEBUG] Realized Price inválido: {realized_price}")
+                raise ValueError(f"Realized Price inválido retornado: {realized_price}")
+            
+            # Verificar se é valor suspeito (muito redondo)
+            if realized_price == 45000.0:
+                logging.warning("⚠️ [DEBUG] VALOR SUSPEITO: $45,000.00 exato - Pode ser fallback!")
+            elif realized_price % 1000 == 0:
+                logging.warning(f"⚠️ [DEBUG] VALOR SUSPEITO: ${realized_price:,.0f} muito redondo!")
+            else:
+                logging.info(f"✅ [DEBUG] Valor parece legítimo: ${realized_price:,.2f}")
+            
+            # Calcular variação
+            logging.info("🧮 [DEBUG] Calculando variação percentual...")
+            variacao_pct = safe_division((preco_atual - realized_price), realized_price, 0.0) * 100
+            logging.info(f"📈 [DEBUG] Variação calculada: {variacao_pct:.2f}%")
+            
+            # Classificar fase do ciclo
+            logging.info("🎯 [DEBUG] Classificando fase do ciclo...")
+            score, classificacao = _classify_cycle_phase_real(variacao_pct)
+            logging.info(f"🏆 [DEBUG] Score: {score} | Classificação: {classificacao}")
+            
+            logging.info("✅ [DEBUG] Cálculo BigQuery concluído com sucesso!")
             
             return {
                 "indicador": "BTC vs Realized Price",
                 "fonte": "BigQuery UTXOs + TradingView preços históricos",
-                "valor_coletado": "erro",
-                "score": 0.0,
-                "score_ponderado (score × peso)": 0.0,
-                "classificacao": "Dados indisponíveis",
-                "observação": f"Erro ao calcular Realized Price real: {str(e)}. Fallback também falhou: {str(fallback_error)}",
+                "valor_coletado": f"BTC {variacao_pct:.1f}% vs Realized Price",
+                "score": safe_float(score),
+                f"score_ponderado ({score} × 0.30)": safe_float(score * 0.30),
+                "classificacao": classificacao,
+                "observação": "Compara preço de mercado com preço médio REAL dos holders baseado em UTXOs blockchain + preços históricos",
                 "detalhes": {
                     "dados_coletados": {
                         "preco_atual": safe_float(preco_atual),
-                        "realized_price": 0.0,
-                        "fonte": "N/A"
+                        "realized_price": safe_float(realized_price),
+                        "fonte": "BigQuery + TradingView"
                     },
                     "calculo": {
-                        "formula": "((Preço_Atual - Realized_Price) / Realized_Price) × 100",
-                        "variacao_percentual": 0.0,
-                        "faixa_classificacao": "N/A"
+                        "formula": f"(({preco_atual:.0f} - {realized_price:.0f}) / {realized_price:.0f}) × 100",
+                        "variacao_percentual": safe_float(variacao_pct),
+                        "faixa_classificacao": _get_cycle_phase_range_real(variacao_pct)
                     },
-                    "racional": "Dados indisponíveis devido a erro na coleta BigQuery e fallback"
+                    "racional": f"Preço {variacao_pct:.1f}% vs Realized Price indica {classificacao.lower()} baseado em UTXOs blockchain reais + preços históricos TradingView"
                 }
             }
-
-
+            
+        except Exception as bigquery_error:
+            logging.error(f"❌ [DEBUG] Erro na execução BigQuery: {str(bigquery_error)}")
+            logging.error(f"🔍 [DEBUG] Tipo do erro: {type(bigquery_error)}")
+            raise Exception(f"Falha na execução BigQuery: {str(bigquery_error)}")
+            
+    except Exception as e:
+        logging.error(f"❌ [DEBUG] Erro geral: {str(e)}")
+        return {
+            "indicador": "BTC vs Realized Price",
+            "fonte": "ERRO",
+            "valor_coletado": "erro",
+            "score": 0.0,
+            "score_ponderado (score × peso)": 0.0,
+            "classificacao": "Dados indisponíveis",
+            "observação": f"Erro: {str(e)}"
+        }
+    
 def _classify_cycle_phase_real(variacao_pct: float) -> Tuple[float, str]:
     """
     Classifica a fase do ciclo baseado na variação vs Realized Price REAL
