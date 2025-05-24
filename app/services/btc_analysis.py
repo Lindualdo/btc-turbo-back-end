@@ -142,7 +142,7 @@ def _get_bull_market_range(variacao_pct):
 
 def get_btc_vs_realized_price(tv: TvDatafeed):
     """
-    NOVA VERSÃO: Usa utilitário com dados REAIS de UTXOs blockchain
+    VERSÃO CORRIGIDA: Usa implementação BigQuery REAL
     """
     try:
         # Buscar preço atual do BTC
@@ -152,34 +152,116 @@ def get_btc_vs_realized_price(tv: TvDatafeed):
         if preco_atual <= 0:
             raise ValueError("Preço atual inválido")
         
-        # NOVO: Usar utilitário com UTXOs reais
-        return analyze_btc_vs_realized_price(preco_atual)
+        # NOVO: Usar implementação BigQuery REAL
+        from app.utils.realized_price_util import get_realized_price
         
-    except Exception as e:
-        logging.error(f"❌ Erro na análise BTC vs Realized Price: {str(e)}")
+        logging.info(f"🔍 Preço atual BTC: ${preco_atual:,.2f}")
+        logging.info("⚡ Calculando Realized Price via BigQuery + TradingView...")
+        
+        # Calcular Realized Price REAL
+        realized_price = get_realized_price()
+        
+        if realized_price <= 0:
+            raise ValueError("Realized Price inválido retornado")
+        
+        # Calcular variação
+        variacao_pct = safe_division((preco_atual - realized_price), realized_price, 0.0) * 100
+        
+        # Classificar fase do ciclo
+        score, classificacao = _classify_cycle_phase_real(variacao_pct)
+        
         return {
             "indicador": "BTC vs Realized Price",
-            "fonte": "UTXOs blockchain reais",
-            "valor_coletado": "erro",
-            "score": 0.0,
-            "score_ponderado (score × peso)": 0.0,
-            "classificacao": "Dados indisponíveis",
-            "observação": f"Erro ao buscar preço atual BTC: {str(e)}. Verifique conexão TradingView.",
+            "fonte": "BigQuery UTXOs + TradingView preços históricos",
+            "valor_coletado": f"BTC {variacao_pct:.1f}% vs Realized Price",
+            "score": safe_float(score),
+            f"score_ponderado ({score} × 0.30)": safe_float(score * 0.30),
+            "classificacao": classificacao,
+            "observação": "Compara preço de mercado com preço médio REAL dos holders baseado em UTXOs blockchain + preços históricos",
             "detalhes": {
                 "dados_coletados": {
-                    "preco_atual": 0.0,
-                    "realized_price": 0.0,
-                    "fonte": "N/A"
+                    "preco_atual": safe_float(preco_atual),
+                    "realized_price": safe_float(realized_price),
+                    "fonte": "BigQuery + TradingView"
                 },
                 "calculo": {
-                    "formula": "((Preço_Atual - Realized_Price) / Realized_Price) × 100",
-                    "variacao_percentual": 0.0,
-                    "faixa_classificacao": "N/A"
+                    "formula": f"(({preco_atual:.0f} - {realized_price:.0f}) / {realized_price:.0f}) × 100",
+                    "variacao_percentual": safe_float(variacao_pct),
+                    "faixa_classificacao": _get_cycle_phase_range_real(variacao_pct)
                 },
-                "racional": "Dados indisponíveis devido a erro na coleta"
+                "racional": f"Preço {variacao_pct:.1f}% vs Realized Price REAL indica {classificacao.lower()} baseado em UTXOs blockchain reais + preços históricos TradingView"
             }
         }
+        
+    except Exception as e:
+        logging.error(f"❌ Erro na análise BTC vs Realized Price REAL: {str(e)}")
+        
+        # Fallback para versão estimativa se BigQuery falhar
+        logging.warning("🔄 Fallback: Usando estimativa em caso de erro BigQuery...")
+        
+        try:
+            from app.utils.realized_price_utils import analyze_btc_vs_realized_price
+            return analyze_btc_vs_realized_price(preco_atual)
+        except Exception as fallback_error:
+            logging.error(f"❌ Fallback também falhou: {str(fallback_error)}")
+            
+            return {
+                "indicador": "BTC vs Realized Price",
+                "fonte": "BigQuery UTXOs + TradingView preços históricos",
+                "valor_coletado": "erro",
+                "score": 0.0,
+                "score_ponderado (score × peso)": 0.0,
+                "classificacao": "Dados indisponíveis",
+                "observação": f"Erro ao calcular Realized Price real: {str(e)}. Fallback também falhou: {str(fallback_error)}",
+                "detalhes": {
+                    "dados_coletados": {
+                        "preco_atual": safe_float(preco_atual),
+                        "realized_price": 0.0,
+                        "fonte": "N/A"
+                    },
+                    "calculo": {
+                        "formula": "((Preço_Atual - Realized_Price) / Realized_Price) × 100",
+                        "variacao_percentual": 0.0,
+                        "faixa_classificacao": "N/A"
+                    },
+                    "racional": "Dados indisponíveis devido a erro na coleta BigQuery e fallback"
+                }
+            }
 
+
+def _classify_cycle_phase_real(variacao_pct: float) -> Tuple[float, str]:
+    """
+    Classifica a fase do ciclo baseado na variação vs Realized Price REAL
+    Score máximo = 10.0
+    """
+    variacao_pct = safe_float(variacao_pct)
+    
+    if variacao_pct > 50:
+        return 10.0, "Ciclo Aquecido"
+    elif variacao_pct > 20:
+        return 8.0, "Ciclo Normal"
+    elif variacao_pct > -10:
+        return 6.0, "Acumulação"
+    elif variacao_pct > -30:
+        return 4.0, "Capitulação Leve"
+    else:
+        return 2.0, "Capitulação Severa"
+
+
+def _get_cycle_phase_range_real(variacao_pct: float) -> str:
+    """Retorna a faixa de classificação para fase do ciclo REAL"""
+    variacao_pct = safe_float(variacao_pct)
+    
+    if variacao_pct > 50:
+        return "> +50%"
+    elif variacao_pct > 20:
+        return "+20% a +50%"
+    elif variacao_pct > -10:
+        return "-10% a +20%"
+    elif variacao_pct > -30:
+        return "-30% a -10%"
+    else:
+        return "< -30%"
 
 def get_puell_multiple():
     """

@@ -3,6 +3,9 @@ from app.services.tv_session_manager import get_tv_instance
 from fastapi import Depends
 from tvDatafeed import TvDatafeed
 from notion_client import Client as NotionClient
+from google.cloud import bigquery
+from google.oauth2 import service_account
+
 
 from app.config import get_settings, Settings
 

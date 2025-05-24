@@ -7,3 +7,5 @@ requests
 notion-client
 pydantic-settings>=2.0.0
 web3
+google-cloud-bigquery>=3.11.4
+google-auth>=2.17.3
