@@ -4,7 +4,7 @@
 
 Desenvolver um sistema inteligente para maximizar lucros e mitigar riscos em operações de Hold Alavancado de Bitcoin (BTC) na Plataforma AAVE da rede Arbitrum. O projeto visa integrar análises de força de tendência, riscos técnicos, financeiros, estruturais, macroeconômicos e de plataforma para fornecer orientações estratégicas e auxiliar usuários em suas decisões de investimento.
 
-## 📌 Última versão: v1.0.18 - Analise de ciclos
+## 📌 Última versão: v1.0.19 - Analise de ciclos
 -- Revisão no BTC X EMA 200
 -- Refatoração na função principal para usar a pontuação de cada indicador (limpeza no codigo)
 -- Refattoração para mostrar Score X ponderação de cada indicador
@@ -18,6 +18,7 @@ Desenvolver um sistema inteligente para maximizar lucros e mitigar riscos em ope
 -- Adicionou resumo executivo com estratégias
 -- Removeu nomenclatura V2 desnecessária
 -- Implementou fallbacks inteligentes
+-- Refatoração compketa no indicador BTC X Realized Price - Agora usando dados reais 12 meses
 
 ## 🏗️ Arquitetura do Projeto (Pastas e Arquivos)
 
