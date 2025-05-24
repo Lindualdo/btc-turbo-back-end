@@ -272,110 +272,45 @@ def _get_cycle_phase_range_real(variacao_pct: float) -> str:
     else:
         return "< -30%"
 
+# VERSÃO ATUALIZADA DA FUNÇÃO get_puell_multiple() no btc_analysis.py
+
 def get_puell_multiple():
     """
-    Analisa a pressão dos mineradores baseado no Puell Multiple
-    MANTIDO: Ainda usa Notion (será refatorado no próximo passo)
+    NOVA VERSÃO: Usa dados reais de mineração - APENAS CHAMADA
     """
     try:
-        from notion_client import Client
-        settings = get_settings()
-        NOTION_TOKEN = settings.NOTION_TOKEN
+        logging.info("⛏️ Coletando Puell Multiple...")
         
-        DATABASE_ID = settings.NOTION_DATABASE_ID_MACRO.strip().replace('"', '')
+        # Import e chamada do utilitário completo
+        from app.utils.puell_multiple_utils import get_puell_multiple_analysis
         
-        if not DATABASE_ID:
-            raise ValueError("DATABASE_ID não pode ser vazio.")
-            
-        notion = Client(auth=NOTION_TOKEN)
-        response = notion.databases.query(database_id=DATABASE_ID)
-        
-        for row in response["results"]:
-            props = row["properties"]
-            nome = props["indicador"]["title"][0]["plain_text"].strip().lower()
-            if nome == "puell_multiple":
-                valor = safe_float(props["valor"]["number"])
-                
-                score, classificacao = _classify_miner_pressure(valor)
-
-                return {
-                    "indicador": "Puell Multiple",
-                    "fonte": "Notion API / Glassnode",
-                    "valor_coletado": f"{valor:.2f}",
-                    "score": safe_float(score),
-                    f"score_ponderado ({score} × 0.20)": safe_float(score * 0.20),
-                    "classificacao": classificacao,
-                    "observação": "Ratio da receita diária dos mineradores vs média de 1 ano - indica pressão de venda",
-                    "detalhes": {
-                        "dados_coletados": {
-                            "puell_value": safe_float(valor),
-                            "fonte": "Notion/Glassnode"
-                        },
-                        "calculo": {
-                            "formula": "Receita_Diária_Mineradores / Média_365_Dias",
-                            "resultado": safe_float(valor),
-                            "faixa_classificacao": _get_puell_range(valor)
-                        },
-                        "racional": f"Puell de {valor:.2f} indica {classificacao.lower()} baseado em análise de receita dos mineradores"
-                    }
-                }
-
-        raise ValueError("Indicador 'puell_multiple' não encontrado.")
+        # Retorna resultado completo pronto
+        return get_puell_multiple_analysis()
         
     except Exception as e:
+        logging.error(f"❌ Erro ao calcular Puell Multiple: {str(e)}")
+        
         return {
             "indicador": "Puell Multiple",
-            "fonte": "Notion API / Glassnode",
+            "fonte": "ERRO: Utilitário falhou",
             "valor_coletado": "erro",
             "score": 0.0,
             "score_ponderado (score × peso)": 0.0,
             "classificacao": "Dados indisponíveis",
-            "observação": f"Erro ao coletar Puell Multiple: {str(e)}. Verifique conexão Notion ou dados Glassnode.",
+            "observação": f"Erro ao calcular Puell Multiple: {str(e)}",
             "detalhes": {
                 "dados_coletados": {
                     "puell_value": 0.0,
-                    "fonte": "Notion/Glassnode"
+                    "fonte": "N/A"
                 },
                 "calculo": {
                     "formula": "Receita_Diária_Mineradores / Média_365_Dias",
                     "resultado": 0.0,
                     "faixa_classificacao": "N/A"
                 },
-                "racional": "Dados indisponíveis devido a erro na coleta"
+                "racional": "Dados indisponíveis devido a erro no utilitário"
             }
         }
-
-
-def _classify_miner_pressure(puell_value):
-    """Classifica a pressão dos mineradores - Score máximo 10.0"""
-    puell_value = safe_float(puell_value)
-    
-    if 0.5 <= puell_value <= 1.2:
-        return 10.0, "Zona Ideal"
-    elif 1.2 < puell_value <= 1.8:
-        return 8.0, "Leve Aquecimento"
-    elif (0.3 <= puell_value < 0.5) or (1.8 < puell_value <= 2.5):
-        return 6.0, "Neutro"
-    elif 2.5 < puell_value <= 4.0:
-        return 4.0, "Tensão Alta"
-    else:
-        return 2.0, "Extremo"
-
-
-def _get_puell_range(puell_value):
-    """Retorna a faixa de classificação para Puell Multiple"""
-    puell_value = safe_float(puell_value)
-    
-    if 0.5 <= puell_value <= 1.2:
-        return "0.5 - 1.2"
-    elif 1.2 < puell_value <= 1.8:
-        return "1.2 - 1.8"
-    elif (0.3 <= puell_value < 0.5) or (1.8 < puell_value <= 2.5):
-        return "0.3-0.5 ou 1.8-2.5"
-    elif 2.5 < puell_value <= 4.0:
-        return "2.5 - 4.0"
-    else:
-        return "< 0.3 ou > 4.0"
 
 
 def get_funding_rates_analysis():
