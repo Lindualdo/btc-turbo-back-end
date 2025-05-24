@@ -4,45 +4,20 @@
 
 Desenvolver um sistema inteligente para maximizar lucros e mitigar riscos em operações de Hold Alavancado de Bitcoin (BTC) na Plataforma AAVE da rede Arbitrum. O projeto visa integrar análises de força de tendência, riscos técnicos, financeiros, estruturais, macroeconômicos e de plataforma para fornecer orientações estratégicas e auxiliar usuários em suas decisões de investimento.
 
-## 📌 Última versão: v1.0.17
+## 📌 Última versão: v1.0.18 - Analise de ciclos
 -- Revisão no BTC X EMA 200
--- Refatoração na função principal para usar a pontuação de cada indicador
+-- Refatoração na função principal para usar a pontuação de cada indicador (limpeza no codigo)
 -- Refattoração para mostrar Score X ponderação de cada indicador
 -- Organização e documentação do codigo
 -- Refatorado a função principal analyze_btc_cycles_v2(tv), logica completa em cada indicador, ela apenas consolida
 -- Api será usada como modelo para as demais implementações
 -- #PENDENCIA DE REFATORAR# Retirar funções não utilizadas e criar Utils para cada indicador
-
-```json
-{
-    "categoria": "Análise de Ciclos do BTC",
-    "score_consolidado": 8.6,
-    "classificacao": "🟢 Bull Forte",
-    "Observação": "Score consolidado 8.60. Destaques: BTC: forte (9.0), BTC: forte (9.0), Puell: moderado (7.0)",
-    "indicadores": [
-        {
-            "indicador": "BTC vs EMA 200D",
-            "fonte": "TradingView",
-            "valor_coletado": "BTC 21.8% vs EMA 200D",
-            "score": 9.0,
-            "score_ponderado (score × peso)": 2.6999999999999997,
-            "classificacao": "Bull Confirmado",
-            "observação": "Compara preço atual do BTC com média móvel de 200 dias para identificar tendência macro"
-        },
-       {
-            "indicador": "BTC vs EMA 200D",
-            "fonte": "TradingView",
-            "valor_coletado": "BTC 21.8% vs EMA 200D",
-            "score": 9.0,
-            "score_ponderado (score × peso)": 2.6999999999999997,
-            "classificacao": "Bull Confirmado",
-            "observação": "Compara preço atual do BTC com média móvel de 200 dias para identificar tendência macro"
-        },
-
-    ]
-}
-
-```
+-- Corrigiu a escala 0-10 (era limitada a 9.0)
+-- Eliminou o erro JSON com validações de segurança
+-- Padronizou campo "detalhes" em todos indicadores
+-- Adicionou resumo executivo com estratégias
+-- Removeu nomenclatura V2 desnecessária
+-- Implementou fallbacks inteligentes
 
 ## 🏗️ Arquitetura do Projeto (Pastas e Arquivos)
 
