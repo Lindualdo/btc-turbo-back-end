@@ -8,6 +8,7 @@ from app.config import get_settings
 import logging
 from app.utils.m2_utils import get_m2_global_momentum
 from typing import Tuple
+from app.utils.puell_multiple_util import get_puell_multiple_analysis
 
 
 def safe_division(numerator, denominator, fallback=0.0):
