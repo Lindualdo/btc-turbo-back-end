@@ -33,7 +33,7 @@ def get_all_emas(settings: Settings = Depends(get_settings)):
 
         for key, interval in interval_map.items():
             try:
-                df = tv.get_hist(symbol="ethusdt", exchange="BINANCE", interval=interval, n_bars=500)
+                df = tv.get_hist(symbol="BTCUSDT", exchange="BINANCE", interval=interval, n_bars=500)
 
                 if not isinstance(df, pd.DataFrame) or df.empty:
                     raise ValueError(f"Sem dados retornados para o intervalo {key}")
