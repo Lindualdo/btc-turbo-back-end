@@ -7,7 +7,6 @@ import requests
 from app.config import get_settings
 import logging
 from app.utils.m2_utils import get_m2_global_momentum
-from app.utils.realized_price_utils import analyze_btc_vs_realized_price
 from typing import Tuple
 
 
