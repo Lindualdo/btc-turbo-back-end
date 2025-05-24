@@ -1,4 +1,4 @@
-# app/config.py
+# app/config.py - VERSÃO CORRIGIDA
 
 from pydantic_settings import BaseSettings
 from pydantic import Field
@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     NOTION_DATABASE_ID_EMA: str = Field(..., env="NOTION_DATABASE_ID_EMA")
     NOTION_DATABASE_ID_MACRO: str = Field(..., env="NOTION_DATABASE_ID_MACRO")
 
+    # Google Cloud BigQuery (NOVOS CAMPOS)
+    GOOGLE_APPLICATION_CREDENTIALS_JSON: str = Field(..., env="GOOGLE_APPLICATION_CREDENTIALS_JSON")
+    GOOGLE_CLOUD_PROJECT: str = Field(..., env="GOOGLE_CLOUD_PROJECT")
 
     # Indicator weights and thresholds
     WEIGHT_EMA_200: float = Field(0.25, description="Peso para BTC vs 200D EMA")
