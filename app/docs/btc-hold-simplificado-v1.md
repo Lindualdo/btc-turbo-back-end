@@ -1,5 +1,7 @@
 ```markdown
 # BTC Hold Alavancado - Sistema de Score
+- objetivo: reduzir indicadores, simplificar os grupos definir modelo de Alocação Core-Satellite, gestão de risco integrado ao metodo Kelly
+
 
 ## 📊 Estrutura do Sistema
 

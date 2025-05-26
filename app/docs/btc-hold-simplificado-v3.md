@@ -1,10 +1,10 @@
-# BTC Hold Alavancado - Sistema de Score v2.0
-- objetivo: incluir analise tecnica, aprimorar alertas, sistema de gestão de risco aprimorado, ajuste dinamico de pesos nos grupos de acordo com o ciclo de mercado, definição de sistemas Circuit Breakers, Rebalanceamento por Score, Fatores de Segurança por Perfil (conservado, arrojado...), check list com condições objetivas para Alavancagem 3X (máximo permitido), Gestão de Risco Dinâmica de acordo com score
+# BTC Hold Alavancado - Sistema de Score v3.0
+-Objetivo: integrar o bloco de analise tecnica ao meu sistema de EMAs multi time frames
 
 ## 📊 Estrutura do Sistema Atualizado
 
 ```
-BLOCO ÚNICO - Hold Alavancado Score
+SISTEMA v3.0
 ├── Ciclo (40%)
 │   ├── MVRV Z-Score (20%)
 │   ├── Realized Price Ratio (15%)
@@ -20,11 +20,12 @@ BLOCO ÚNICO - Hold Alavancado Score
 │   ├── Exchange Netflow 7D (3%)
 │   └── Stablecoin Supply Ratio (2%)
 └── Técnico (20%)
-    ├── Posição vs EMA 200 (8%)
-    ├── Estrutura de EMAs (7%)
+    ├── Sistema EMAs Multi-TF (15%)
+    │   ├── Estrutura/Alinhamento EMAs (7%)
+    │   └── Posição do Preço vs EMAs (8%)
     └── Padrões Gráficos (5%)
-
 ```
+
 ---
 
 ## 🎯 Escala de Classificação (0-10)
@@ -174,29 +175,59 @@ BLOCO ÚNICO - Hold Alavancado Score
 
 ---
 
-## 📉 4. TÉCNICO (20% do peso total) [NOVO]
+## 📉 4. TÉCNICO (20% do peso total)
 
-### Posição vs EMA 200 (8%)
-**Timeframe**: Diário
+### Sistema EMAs Multi-Timeframe (15%)
 
-| Distância | Score | Classificação |
-|-----------|-------|--------------|
-| < -20% | 9-10 | Ótimo |
-| -20% a -5% | 7-8 | Bom |
-| -5% a +5% | 5-6 | Neutro |
-| +5% a +30% | 3-4 | Ruim |
-| > +30% | 0-2 | Crítico |
+#### Metodologia de Cálculo por Timeframe
 
-### Estrutura de EMAs (7%)
-**EMAs**: 21, 50, 200
+**A. Bloco Alinhamento/Estrutura das EMAs (7%)**
 
-| Estrutura | Score | Classificação |
-|-----------|-------|--------------|
-| EMA21 > EMA50 > EMA200 | 9-10 | Bull Perfeito |
-| Preço > EMA200, EMAs mistas | 6-8 | Bull Inicial |
-| EMAs laterais/cruzadas | 4-6 | Indefinido |
-| EMA21 < EMA50 < EMA200 | 2-4 | Bear Confirmado |
-| Preço < todas EMAs | 0-2 | Bear Extremo |
+| Par de EMAs | Representa | Pontuação |
+|-------------|------------|-----------|
+| EMA 17 > EMA 34 | Curtíssimo prazo | +1 ponto |
+| EMA 34 > EMA 144 | Curto prazo | +2 pontos |
+| EMA 144 > EMA 305 | Médio prazo | +3 pontos |
+| EMA 305 > EMA 610 | Longo prazo | +4 pontos |
+
+**Pontuação máxima**: 10 pontos
+
+**B. Bloco Posição do Preço vs EMAs (8%)**
+
+| EMA | Função Técnica | Pontuação |
+|-----|----------------|-----------|
+| Preço > EMA 17 | Momentum imediato | +1 |
+| Preço > EMA 34 | Tendência curta | +1 |
+| Preço > EMA 144 | Tendência média | +2 |
+| Preço > EMA 305 | Macro estrutura | +3 |
+| Preço > EMA 610 | Base de ciclo | +3 |
+
+**Pontuação máxima**: 10 pontos
+
+#### Consolidação Multi-Timeframe
+
+| Timeframe | Peso | Importância |
+|-----------|------|-------------|
+| 1W (Semanal) | 50% | Estrutura principal |
+| 1D (Diário) | 25% | Tendência primária |
+| 4H | 15% | Médio prazo |
+| 1H | 10% | Curto prazo |
+
+**Fórmula de Cálculo**:
+```
+Score_TF = (Alinhamento + Posição) / 20 × 10
+Score_Final = (1W × 0.5) + (1D × 0.25) + (4H × 0.15) + (1H × 0.10)
+```
+
+#### Interpretação do Score EMAs
+
+| Score | Classificação | Descrição |
+|-------|--------------|-----------|
+| 8.1-10.0 | Tendência Forte | Bull market confirmado |
+| 6.1-8.0 | Correção Saudável | Pullback em tendência de alta |
+| 4.1-6.0 | Neutro | Lateralização ou transição |
+| 2.1-4.0 | Reversão | Mudança de tendência |
+| 0.0-2.0 | Bear Confirmado | Tendência de baixa estabelecida |
 
 ### Padrões Gráficos (5%)
 **Análise**: Manual ou algoritmo de detecção
@@ -344,158 +375,16 @@ PATRIMÔNIO TOTAL BTC
     └── Aplicar sistema de score
 ```
 
-### Tabela de Aplicação Kelly 
-| Score | Classificação | Conservador | Moderado | Agressivo | Extremo* |
-|-------|--------------|-------------|----------|-----------|----------|
-| 0-2   | Crítico      | 1.0x        | 1.0x     | 1.0x      | 1.0x     |
-| 2-4   | Ruim         | 1.1x        | 1.2x     | 1.3x      | 1.5x     |
-| 4-6   | Neutro       | 1.2x        | 1.4x     | 1.6x      | 2.0x     |
-| 6-8   | Bom          | 1.35x       | 1.7x     | 2.0x      | 2.5x     |
-| 8-10  | Ótimo        | 1.5x        | 2.0x     | 2.5x      | 3.0x     |
+### Tabela de Aplicação Kelly
+| Score | Kelly % | Core (BTC) | Satellite (BTC) | Total Exposição | Alavancagem |
+|-------|---------|------------|-----------------|-----------------|-------------|
+| 0-2   | 0%      | 1.0        | 0.0             | 1.0x            | 1.0x        |
+| 2-4   | 10%     | 1.0        | 0.1             | 1.07x           | 1.07x       |
+| 4-6   | 25%     | 1.0        | 0.25            | 1.17x           | 1.17x       |
+| 6-8   | 50%     | 1.0        | 0.50            | 1.35x           | 1.35x       |
+| 8-10  | 75%     | 1.0        | 0.75            | 1.53x           | 1.53x       |
 
-*Extremo = Apenas para traders experientes em condições excepcionais
-
-🛡️ Fatores de Segurança por Perfil
-
-PERFIL CONSERVADOR (Recomendado)
-├── Alavancagem Máxima: 1.5x
-├── Stop Loss: -10%
-├── Health Factor Mínimo: 1.5
-└── Experiência: Iniciante
-
-PERFIL MODERADO
-├── Alavancagem Máxima: 2.0x
-├── Stop Loss: -8%
-├── Health Factor Mínimo: 1.4
-└── Experiência: 6+ meses
-
-PERFIL AGRESSIVO
-├── Alavancagem Máxima: 2.5x
-├── Stop Loss: -6%
-├── Health Factor Mínimo: 1.3
-└── Experiência: 1+ ano
-
-PERFIL EXTREMO
-├── Alavancagem Máxima: 3.0x
-├── Stop Loss: -5%
-├── Health Factor Mínimo: 1.25
-└── Experiência: 2+ anos
-
-📊 Condições para Alavancagem 3X
-TODOS os critérios devem ser atendidos:
-
-CHECKLIST 3X (Score 8-10)
-□ MVRV Z-Score < 0 (fundo histórico)
-□ RSI Semanal < 30 (extremo oversold)
-□ Exchange Netflow < -50k BTC (acumulação massiva)
-□ Funding Rates < -0.05% (shorts pagando)
-□ Preço > 20% abaixo da EMA200
-□ Volume de compra > 2x média
-□ Sem eventos macro negativos próximos
-□ Capital que pode perder 100%
-
-⚠️ Tabela de Risco por Alavancagem
-
-| Alavancagem | Queda para Liquidação | Volatilidade Diária Máxima | Risco de Ruin |
-|-------------|----------------------|---------------------------|---------------|
-| 1.0x        | Impossível           | Ilimitada                 | 0%            |
-| 1.5x        | -33%                 | 10%                       | 5%            |
-| 2.0x        | -25%                 | 8%                        | 15%           |
-| 2.5x        | -20%                 | 6%                        | 30%           |
-| 3.0x        | -16.7%               | 5%                        | 50%           |
-
-🎯 Estratégia de Entrada Escalonada
-
-ENTRADA PROGRESSIVA (para alavancagens > 2x)
-├── 25% da posição com 1.5x
-├── 25% adicional se confirmar suporte (2.0x)
-├── 25% após rompimento de resistência (2.5x)
-└── 25% final apenas se todos sinais positivos (3.0x)
-
-Nunca all-in com alavancagem máxima!
-
-📉 Gestão de Risco Dinâmica
-
-def calcular_alavancagem_dinamica(score, perfil, condicoes_mercado):
-    # Base
-    alavancagem_base = tabela_alavancagem[score][perfil]
-    
-    # Modificadores
-    if volatilidade_btc > 80:
-        alavancagem_base *= 0.7  # Reduz 30% em alta vol
-    
-    if tempo_em_posicao > 30_dias:
-        alavancagem_base *= 0.9  # Reduz com tempo
-    
-    if drawdown_portfolio > 20:
-        alavancagem_base *= 0.8  # Reduz após perdas
-    
-    # Caps
-    if perfil == "extremo" and score < 9:
-        alavancagem_base = min(alavancagem_base, 2.5)
-    
-    return min(alavancagem_base, limite_plataforma)
-
-🚨 Sistema de Circuit Breakers para Alta Alavancagem
-
-TRIGGERS AUTOMÁTICOS (Alavancagem > 2x)
-├── Queda 5% em 1h → Reduzir para 1.5x
-├── Queda 10% em 4h → Reduzir para 1.0x
-├── Volatilidade > 100% anual → Máximo 2.0x
-├── Funding > 0.1% → Máximo 1.5x
-└── Qualquer notícia negativa major → Fechar 50%
-
-💰 Expectativa de Retorno vs Risco
-
-| Alavancagem | Bull Case (+50%) | Base Case (+20%) | Bear Case (-20%) | Crash (-40%) |
-|-------------|------------------|------------------|------------------|--------------|
-| 1.0x        | +50%             | +20%             | -20%             | -40%         |
-| 1.5x        | +75%             | +30%             | -30%             | -60%         |
-| 2.0x        | +100%            | +40%             | -40%             | LIQUIDADO    |
-| 2.5x        | +125%            | +50%             | LIQUIDADO        | LIQUIDADO    |
-| 3.0x        | +150%            | +60%             | LIQUIDADO        | LIQUIDADO    |
-
-🔄 Rebalanceamento por Score
-
-REGRAS DE AJUSTE
-├── Score sobe 2+ pontos → Pode aumentar 0.5x
-├── Score cai 2+ pontos → Deve reduzir 0.5x
-├── Score < 4 → Máximo 1.5x independente do perfil
-└── Revisar alavancagem 2x ao dia
-
-📊 Exemplo Prático - Cenário Ótimo (Score 9)
-
-SETUP BULL MARKET BOTTOM
-├── Capital: $100k
-├── Score: 9/10
-├── Perfil: Agressivo
-├── Alavancagem Escolhida: 2.5x
-
-EXECUÇÃO:
-1. Compra $40k spot (base)
-2. Espera confirmação → +$40k (1.8x)
-3. Rompimento confirmado → +$20k (2.5x total)
-
-GESTÃO:
-- Stop loss: -6% do entry médio
-- Take profit 1: +15% (fechar 0.5x)
-- Take profit 2: +30% (fechar 1.0x)
-- Let ride: 1.0x para o moon
-
-⚡ Quick Decision Matrix
-
-Score < 6 → Máximo 1.5x sempre
-Score 6-8 + Conservador → 1.35x
-Score 6-8 + Moderado → 1.7x
-Score 6-8 + Agressivo → 2.0x
-Score 8+ + Todos sinais OK → Até 3.0x
-Qualquer dúvida → Use menos alavancagem
-
-🎯 Regra de Ouro
-
-"A alavancagem ideal é aquela que te deixa dormir tranquilo. Se está perdendo sono, reduza pela metade."
 ---
-
 
 ## 📋 Padrão de Saída JSON
 
@@ -551,10 +440,26 @@ Qualquer dúvida → Use menos alavancagem
     "tecnico": {
       "peso": "20%",
       "score": 1.12,
-      "indicadores": {
-        "Posicao_EMA200": { "valor": "+3%", "score": 5.5 },
-        "Estrutura_EMAs": { "valor": "Mista", "score": 6.0 },
-        "Padrao_Grafico": { "valor": "Consolidação", "score": 5.0 }
+      "detalhamento": {
+        "sistema_emas": {
+          "peso": "15%",
+          "score_consolidado": 9.6,
+          "timeframes": {
+            "1W": { "score": 10.0, "peso": "50%" },
+            "1D": { "score": 10.0, "peso": "25%" },
+            "4H": { "score": 9.0, "peso": "15%" },
+            "1H": { "score": 7.5, "peso": "10%" }
+          },
+          "componentes": {
+            "alinhamento": { "valor": "Bull perfeito", "score": 9.5 },
+            "posicao": { "valor": "Acima de todas EMAs", "score": 9.7 }
+          }
+        },
+        "padroes_graficos": {
+          "peso": "5%",
+          "padrao": "Bull Flag",
+          "score": 7.0
+        }
       }
     }
   }
@@ -584,7 +489,7 @@ Qualquer dúvida → Use menos alavancagem
    - Alertas críticos: Real-time
 
 2. **Prioridade de Dados**:
-   - Tier 1: MVRV, EMA200, Health Factor
+   - Tier 1: MVRV, Sistema EMAs, Health Factor
    - Tier 2: RSI, Funding, Exchange Flow
    - Tier 3: Padrões, Puell, Stablecoin
 
@@ -592,6 +497,12 @@ Qualquer dúvida → Use menos alavancagem
    - Se indicador indisponível, usar peso 0
    - Recalcular proporcionalmente outros
 
+4. **Sistema EMAs**:
+   - Fonte principal: TradingView
+   - EMAs utilizadas: 17, 34, 144, 305, 610
+   - Timeframes: 1W, 1D, 4H, 1H
+
 ---
 
-*Versão 2.0 - Atualizada em 25/05/2025 - 22:55
+*Versão 3.0 - Sistema com EMAs Multi-Timeframe Integrado*
+*Atualizada em 26/05/2025*
