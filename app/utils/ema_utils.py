@@ -80,13 +80,13 @@ def consolidar_scores(scores_dict):
 
     score_final = round(total, 1)
 
-    if score >= 8.1:
+    if score_final >= 8.1:
         classificacao = "Muito forte"
-    elif score >= 6.1:
+    elif score_final >= 6.1:
         classificacao = "Forte"
-    elif score >= 4.1:
+    elif score_final >= 4.1:
         classificacao = "Moderada"
-    elif score >= 2.1:
+    elif score_final >= 2.1:
         classificacao = "Fraca"
     else:
         classificacao = "Final da tendêcia"
